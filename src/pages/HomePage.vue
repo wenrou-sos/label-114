@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { Plus } from 'lucide-vue-next'
 import type { GrowthIndicator, AgeRange, BabyMeasurement, SpecialPeriod } from '../types'
 import Header from '../components/Header.vue'
 import IndicatorSwitch from '../components/IndicatorSwitch.vue'
@@ -8,9 +9,19 @@ import GrowthChart from '../components/GrowthChart.vue'
 import SpecialPeriodLegend from '../components/SpecialPeriodLegend.vue'
 import MeasurementDetail from '../components/MeasurementDetail.vue'
 import SpecialPeriodDetail from '../components/SpecialPeriodDetail.vue'
+import AddMeasurementModal from '../components/AddMeasurementModal.vue'
+import { useBabyData } from '../composables/useBabyData'
+
+const { measurements, maxAgeMonths } = useBabyData()
 
 const currentIndicator = ref<GrowthIndicator>('weight')
 const currentAgeRange = ref<AgeRange>('0-24')
+
+watch(maxAgeMonths, (newMax) => {
+  if (newMax > 24 && currentAgeRange.value === '0-24') {
+    currentAgeRange.value = '0-60'
+  }
+}, { immediate: true })
 
 const detailVisible = ref(false)
 const selectedMeasurement = ref<BabyMeasurement | null>(null)
@@ -18,6 +29,8 @@ const selectedMeasurementIndex = ref(0)
 
 const periodDetailVisible = ref(false)
 const selectedPeriod = ref<SpecialPeriod | null>(null)
+
+const addModalVisible = ref(false)
 
 const handlePointClick = (measurement: BabyMeasurement, index: number) => {
   selectedMeasurement.value = measurement
@@ -37,10 +50,16 @@ const handlePeriodClick = (period: SpecialPeriod) => {
 const handleClosePeriodDetail = () => {
   periodDetailVisible.value = false
 }
+
+const handleAddSuccess = () => {
+  if (maxAgeMonths.value > 24 && currentAgeRange.value === '0-24') {
+    currentAgeRange.value = '0-60'
+  }
+}
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-pink-50">
+  <div class="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-pink-50 pb-24">
     <div class="max-w-lg mx-auto px-4 py-6">
       <Header />
       
@@ -66,6 +85,16 @@ const handleClosePeriodDetail = () => {
       </div>
     </div>
     
+    <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-30">
+      <button
+        @click="addModalVisible = true"
+        class="flex items-center gap-2 px-6 py-3.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold shadow-xl shadow-pink-300/60 hover:shadow-pink-400/70 transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-pink-400/50"
+      >
+        <Plus class="w-5 h-5" />
+        <span>添加记录</span>
+      </button>
+    </div>
+    
     <MeasurementDetail
       :visible="detailVisible"
       :measurement="selectedMeasurement"
@@ -78,6 +107,12 @@ const handleClosePeriodDetail = () => {
       :visible="periodDetailVisible"
       :period="selectedPeriod"
       @close="handleClosePeriodDetail"
+    />
+    
+    <AddMeasurementModal
+      :visible="addModalVisible"
+      @close="addModalVisible = false"
+      @success="handleAddSuccess"
     />
   </div>
 </template>

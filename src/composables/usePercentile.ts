@@ -1,11 +1,14 @@
 import { computed } from 'vue'
 import type { GrowthIndicator, BabyMeasurement } from '../types'
 import { getWHOData } from '../data/whoStandards'
-import { babyInfo, babyMeasurements } from '../data/mockBabyData'
+import { babyInfo } from '../data/mockBabyData'
+import { useBabyData } from './useBabyData'
 import { calculatePercentile, getPercentileLabel, getPercentileKey, getPercentileRange } from '../utils/percentile'
 import { calculateGrowthRate, getIndicatorUnit, getIndicatorLabel } from '../utils/growthRate'
 
 export const usePercentile = () => {
+  const { measurements } = useBabyData()
+
   const getMeasurementDetail = (
     measurement: BabyMeasurement,
     index: number,
@@ -20,7 +23,7 @@ export const usePercentile = () => {
 
     const percentile = calculatePercentile(value, whoData, measurement.ageMonths)
     const percentileLabel = getPercentileLabel(percentile)
-    const growthRateResult = calculateGrowthRate(babyMeasurements, index, indicator)
+    const growthRateResult = calculateGrowthRate(measurements.value, index, indicator)
 
     return {
       date: measurement.date,
@@ -46,13 +49,13 @@ export const usePercentile = () => {
   }
 
   const latestMeasurement = computed(() => {
-    return babyMeasurements[babyMeasurements.length - 1]
+    return measurements.value[measurements.value.length - 1]
   })
 
   const getLatestPercentile = (indicator: GrowthIndicator) => {
     const latest = latestMeasurement.value
     if (!latest) return null
-    return getMeasurementDetail(latest, babyMeasurements.length - 1, indicator)
+    return getMeasurementDetail(latest, measurements.value.length - 1, indicator)
   }
 
   return {

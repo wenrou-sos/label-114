@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick, computed } from 'vue'
 import * as echarts from 'echarts'
 import type { ECharts, EChartsOption } from 'echarts'
 import type { GrowthIndicator, AgeRange, BabyMeasurement, SpecialPeriod, WHODataPoint, PercentileKey } from '../types'
 import { getWHOData } from '../data/whoStandards'
-import { babyMeasurements, specialPeriods, babyInfo } from '../data/mockBabyData'
+import { specialPeriods, babyInfo } from '../data/mockBabyData'
+import { useBabyData } from '../composables/useBabyData'
 import { Loader2 } from 'lucide-vue-next'
 
 interface Props {
@@ -18,18 +19,20 @@ const emit = defineEmits<{
   (e: 'periodClick', period: SpecialPeriod): void
 }>()
 
+const { measurements } = useBabyData()
+
 const chartRef = ref<HTMLElement | null>(null)
 const chartInstance = ref<ECharts | null>(null)
 const isLoading = ref(false)
 
-const currentWHOData = (): WHODataPoint[] => {
+const currentWHOData = computed((): WHODataPoint[] => {
   return getWHOData(babyInfo.gender, props.indicator, props.ageRange)
-}
+})
 
-const filteredMeasurements = (): BabyMeasurement[] => {
+const filteredMeasurements = computed((): BabyMeasurement[] => {
   const maxAge = props.ageRange === '0-24' ? 24 : 60
-  return babyMeasurements.filter(m => m.ageMonths <= maxAge)
-}
+  return measurements.value.filter(m => m.ageMonths <= maxAge)
+})
 
 const indicatorUnit = (): string => {
   switch (props.indicator) {
@@ -49,8 +52,8 @@ const percentileColors: Record<PercentileKey, string> = {
 }
 
 const generateChartOption = (): EChartsOption => {
-  const whoData = currentWHOData()
-  const measurements = filteredMeasurements()
+  const whoData = currentWHOData.value
+  const measurements = filteredMeasurements.value
   const maxAge = props.ageRange === '0-24' ? 24 : 60
 
   const percentileKeys: PercentileKey[] = ['P3', 'P15', 'P50', 'P85', 'P97']
@@ -326,7 +329,7 @@ const initChart = async () => {
     }
     if (p.seriesType === 'scatter') {
       if (p.data?.measurementIndex !== undefined) {
-        const measurement = filteredMeasurements()[p.data.measurementIndex]
+        const measurement = filteredMeasurements.value[p.data.measurementIndex]
         if (measurement) {
           emit('pointClick', measurement, p.data.measurementIndex)
         }
@@ -352,10 +355,11 @@ const updateChart = () => {
 }
 
 watch(
-  () => [props.indicator, props.ageRange],
+  () => [props.indicator, props.ageRange, measurements.value.length],
   () => {
     updateChart()
-  }
+  },
+  { deep: true }
 )
 
 onMounted(() => {
