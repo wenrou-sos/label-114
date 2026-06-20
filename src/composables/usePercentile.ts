@@ -2,7 +2,7 @@ import { computed } from 'vue'
 import type { GrowthIndicator, BabyMeasurement } from '../types'
 import { getWHOData } from '../data/whoStandards'
 import { babyInfo, babyMeasurements } from '../data/mockBabyData'
-import { calculatePercentile, getPercentileLabel, getPercentileKey } from '../utils/percentile'
+import { calculatePercentile, getPercentileLabel, getPercentileKey, getPercentileRange } from '../utils/percentile'
 import { calculateGrowthRate, getIndicatorUnit, getIndicatorLabel } from '../utils/growthRate'
 
 export const usePercentile = () => {
@@ -30,6 +30,7 @@ export const usePercentile = () => {
       indicatorLabel: getIndicatorLabel(indicator),
       percentile,
       percentileKey: getPercentileKey(percentile),
+      percentileRange: getPercentileRange(percentile),
       percentileLabel,
       growthRate: growthRateResult.rate,
       growthRateUnit: growthRateResult.unit

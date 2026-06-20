@@ -16,23 +16,31 @@ const normalInv = (p: number): number => {
 }
 
 const getPercentileKey = (percentile: number): PercentileKey => {
-  if (percentile <= 3) return 'P3'
-  if (percentile <= 15) return 'P15'
-  if (percentile <= 50) return 'P50'
-  if (percentile <= 85) return 'P85'
+  if (percentile < 3) return 'P3'
+  if (percentile < 15) return 'P15'
+  if (percentile < 85) return 'P50'
+  if (percentile < 97) return 'P85'
   return 'P97'
 }
 
 const getPercentileLabel = (percentile: number): string => {
   const key = getPercentileKey(percentile)
   const labels: Record<PercentileKey, string> = {
-    P3: '低于3%，偏瘦偏矮',
-    P15: '3%-15%，中下水平',
-    P50: '15%-85%，正常水平',
-    P85: '85%-97%，中上水平',
-    P97: '高于97%，偏胖偏高'
+    P3: '低于第3百分位，生长偏低',
+    P15: '第3-15百分位，中下水平',
+    P50: '第15-85百分位，正常水平',
+    P85: '第85-97百分位，中上水平',
+    P97: '高于第97百分位，生长偏高'
   }
   return labels[key]
+}
+
+const getPercentileRange = (percentile: number): string => {
+  if (percentile < 3) return '低于P3'
+  if (percentile < 15) return 'P3-P15'
+  if (percentile < 85) return 'P15-P85'
+  if (percentile < 97) return 'P85-P97'
+  return '高于P97'
 }
 
 const interpolateData = (data: WHODataPoint[], age: number): WHODataPoint | null => {
@@ -79,5 +87,6 @@ export {
   interpolateData,
   calculatePercentile,
   getPercentileKey,
-  getPercentileLabel
+  getPercentileLabel,
+  getPercentileRange
 }

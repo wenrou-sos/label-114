@@ -122,15 +122,46 @@ const formatDate = (dateStr: string): string => {
                 </div>
               </div>
               
-              <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-                  <Percent class="w-5 h-5 text-green-500" />
-                </div>
-                <div>
-                  <div class="text-xs text-gray-500">百分位</div>
-                  <div class="text-sm font-medium text-gray-800">
-                    第 {{ detail.percentile.toFixed(1) }} 百分位 ({{ detail.percentileKey }})
+              <div class="p-3 bg-gray-50 rounded-xl">
+                <div class="flex items-center gap-3 mb-3">
+                  <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <Percent class="w-5 h-5 text-green-500" />
                   </div>
+                  <div>
+                    <div class="text-xs text-gray-500">百分位排名</div>
+                    <div class="text-base font-bold text-gray-800">
+                      第 {{ detail.percentile.toFixed(1) }}%
+                    </div>
+                  </div>
+                </div>
+                <div class="relative h-3 bg-gray-200 rounded-full overflow-hidden mb-2">
+                  <div 
+                    class="absolute left-0 top-0 h-full rounded-full transition-all duration-500"
+                    :style="{ 
+                      width: detail.percentile + '%',
+                      backgroundColor: growthStatus?.color
+                    }"
+                  ></div>
+                  <div class="absolute top-0 h-full w-0.5 bg-white/60" style="left: 3%"></div>
+                  <div class="absolute top-0 h-full w-0.5 bg-white/60" style="left: 15%"></div>
+                  <div class="absolute top-0 h-full w-0.5 bg-white/80" style="left: 50%"></div>
+                  <div class="absolute top-0 h-full w-0.5 bg-white/60" style="left: 85%"></div>
+                  <div class="absolute top-0 h-full w-0.5 bg-white/60" style="left: 97%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] text-gray-400">
+                  <span>P3</span>
+                  <span>P15</span>
+                  <span>P50</span>
+                  <span>P85</span>
+                  <span>P97</span>
+                </div>
+                <div class="text-xs text-gray-500 mt-2">
+                  <span class="font-medium">含义：</span>
+                  在同年龄同性别儿童中，约有 
+                  <span class="font-medium" :style="{ color: growthStatus?.color }">
+                    {{ detail.percentile.toFixed(1) }}%
+                  </span> 
+                  的宝宝生长指标低于此数值
                 </div>
               </div>
               

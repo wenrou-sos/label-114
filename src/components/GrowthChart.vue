@@ -15,6 +15,7 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'pointClick', measurement: BabyMeasurement, index: number): void
+  (e: 'periodClick', period: SpecialPeriod): void
 }>()
 
 const chartRef = ref<HTMLElement | null>(null)
@@ -114,10 +115,14 @@ const generateChartOption = (): EChartsOption => {
   }
 
   const filteredPeriods = specialPeriods.filter(sp => sp.ageMonths <= maxAge)
-  if (filteredPeriods.length > 0) {
-    const yMax = Math.max(...whoData.map(d => d.P97))
-    const yMin = Math.min(...whoData.map(d => d.P3))
-    const markerY = yMin + (yMax - yMin) * 0.95
+  const yMaxRaw = Math.max(...whoData.map(d => d.P97))
+  const yMinRaw = Math.min(...whoData.map(d => d.P3))
+  const yRange = Math.max(yMaxRaw - yMinRaw, 0.001)
+  const hasPeriods = filteredPeriods.length > 0
+  const yAxisMax = hasPeriods ? yMaxRaw + yRange * 0.14 : undefined
+
+  if (hasPeriods) {
+    const markerY = yMaxRaw + yRange * 0.06
 
     const periodColorMap: Record<string, string> = {
       growthSpurt: '#FFB74D',
@@ -129,25 +134,39 @@ const generateChartOption = (): EChartsOption => {
       name: '特殊时期',
       type: 'scatter',
       symbol: 'roundRect',
-      symbolSize: 28,
+      symbolSize: 22,
       symbolRotate: 45,
       silent: false,
       data: filteredPeriods.map(sp => ({
         name: sp.label,
         value: [sp.ageMonths, markerY],
+        periodId: sp.id,
         periodType: sp.type,
         description: sp.description
       })),
       itemStyle: {
-        color: (params: any) => periodColorMap[params.data.periodType] || '#999'
+        color: (params: any) => periodColorMap[params.data.periodType] || '#999',
+        borderColor: '#fff',
+        borderWidth: 2
       },
       label: {
-        show: false
+        show: true,
+        position: 'top',
+        distance: 6,
+        fontSize: 10,
+        color: '#555',
+        backgroundColor: 'rgba(255,255,255,0.9)',
+        borderRadius: 4,
+        padding: [2, 5],
+        formatter: (params: any) => params.data.name
+      },
+      labelLayout: {
+        hideOverlap: true
       },
       tooltip: {
-        formatter: (params: any) => `<div style="padding:8px;"><strong>${params.name}</strong><br/><span style="font-size:12px;">${params.data.description}</span></div>`
+        formatter: (params: any) => `<div style="padding:8px;"><strong>${params.name}</strong><br/><span style="font-size:12px;color:#666;">${params.data.description}</span></div>`
       },
-      z: 4
+      z: 6
     })
   }
 
@@ -186,12 +205,18 @@ const generateChartOption = (): EChartsOption => {
         }
       },
       formatter: (params: unknown) => {
-        const ps = params as Array<{ seriesName: string; value: number[]; color?: string }>
+        const ps = params as Array<{ seriesName: string; value: number[]; color?: string; data?: { name?: string; description?: string } }>
         if (!ps || ps.length === 0) return ''
         const age = ps[0].value[0]
         let html = `<div style="font-weight:600;margin-bottom:8px;">月龄: ${age.toFixed(1)} 月</div>`
         ps.forEach(p => {
-          if (p.seriesName !== '特殊时期' && p.value[1] !== undefined) {
+          if (p.seriesName === '特殊时期' && p.data?.description) {
+            html += `<div style="display:flex;align-items:center;margin:4px 0;">
+              <span style="display:inline-block;width:10px;height:10px;background:${p.color || '#999'};margin-right:8px;transform:rotate(45deg);"></span>
+              <span style="font-weight:600;">${p.data.name}</span>
+            </div>`
+            html += `<div style="font-size:12px;color:#666;margin:2px 0 6px 18px;">${p.data.description}</div>`
+          } else if (p.seriesName !== '特殊时期' && p.seriesName !== '测量数据' && p.value[1] !== undefined) {
             html += `<div style="display:flex;align-items:center;margin:4px 0;">
               <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${p.color || '#333'};margin-right:8px;"></span>
               <span>${p.seriesName}: </span>
@@ -247,6 +272,7 @@ const generateChartOption = (): EChartsOption => {
         color: '#666',
         fontWeight: 500
       },
+      max: yAxisMax,
       axisLine: {
         show: false
       },
@@ -293,11 +319,22 @@ const initChart = async () => {
   chartInstance.value.setOption(generateChartOption())
 
   chartInstance.value.on('click', (params: unknown) => {
-    const p = params as { seriesType: string; data: { measurementIndex?: number } }
-    if (p.seriesType === 'scatter' && p.data?.measurementIndex !== undefined) {
-      const measurement = filteredMeasurements()[p.data.measurementIndex]
-      if (measurement) {
-        emit('pointClick', measurement, p.data.measurementIndex)
+    const p = params as { 
+      seriesType: string
+      seriesName: string
+      data: { measurementIndex?: number; periodId?: string; periodType?: string }
+    }
+    if (p.seriesType === 'scatter') {
+      if (p.data?.measurementIndex !== undefined) {
+        const measurement = filteredMeasurements()[p.data.measurementIndex]
+        if (measurement) {
+          emit('pointClick', measurement, p.data.measurementIndex)
+        }
+      } else if (p.data?.periodId) {
+        const period = specialPeriods.find(sp => sp.id === p.data?.periodId)
+        if (period) {
+          emit('periodClick', period)
+        }
       }
     }
   })

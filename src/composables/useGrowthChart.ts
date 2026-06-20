@@ -164,6 +164,7 @@ export const useGrowthChart = (options: UseGrowthChartOptions) => {
         data: filteredPeriods.map(sp => ({
           name: sp.label,
           value: [sp.ageMonths, markerY],
+          periodId: sp.id,
           periodType: sp.type,
           description: sp.description
         })),

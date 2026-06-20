@@ -43,7 +43,9 @@ export interface MeasurementDetail {
   value: number
   unit: string
   percentile: number
+  percentileKey: PercentileKey
   percentileLabel: string
+  percentileRange: string
   growthRate: number
   growthRateUnit: string
 }
