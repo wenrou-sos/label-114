@@ -74,9 +74,8 @@ const generateChartOption = (): EChartsOption => {
     z: 1
   }))
 
-  const babyData = measurements
-    .filter(m => m[props.indicator] !== undefined)
-    .map(m => [m.ageMonths, m[props.indicator]])
+  const indicatorMeasurements = measurements.filter(m => m[props.indicator] !== undefined)
+  const babyData = indicatorMeasurements.map(m => [m.ageMonths, m[props.indicator]])
 
   if (babyData.length > 0) {
     series.push({
@@ -102,9 +101,9 @@ const generateChartOption = (): EChartsOption => {
         borderColor: '#fff',
         borderWidth: 2
       },
-      data: babyData.map((d, i) => ({
-        value: d,
-        measurementIndex: i
+      data: indicatorMeasurements.map((m, i) => ({
+        value: babyData[i],
+        measurementId: m.id
       })),
       emphasis: {
         itemStyle: {
@@ -324,13 +323,14 @@ const initChart = async () => {
     const p = params as { 
       seriesType: string
       seriesName: string
-      data: { measurementIndex?: number; periodId?: string; periodType?: string }
+      data: { measurementId?: string; periodId?: string; periodType?: string }
     }
     if (p.seriesType === 'scatter') {
-      if (p.data?.measurementIndex !== undefined) {
-        const measurement = filteredMeasurements.value[p.data.measurementIndex]
+      if (p.data?.measurementId !== undefined) {
+        const measurement = measurements.value.find(m => m.id === p.data?.measurementId)
         if (measurement) {
-          emit('pointClick', measurement, p.data.measurementIndex)
+          const index = measurements.value.findIndex(m => m.id === p.data?.measurementId)
+          emit('pointClick', measurement, index)
         }
       } else if (p.data?.periodId) {
         const period = specialPeriods.value.find(sp => sp.id === p.data?.periodId)
@@ -354,7 +354,30 @@ const updateChart = () => {
 }
 
 watch(
-  () => [props.indicator, props.ageRange, measurements.value.length, currentBabyId.value],
+  () => [props.indicator, props.ageRange, currentBabyId.value],
+  () => {
+    updateChart()
+  }
+)
+
+watch(
+  measurements,
+  () => {
+    updateChart()
+  },
+  { deep: true }
+)
+
+watch(
+  specialPeriods,
+  () => {
+    updateChart()
+  },
+  { deep: true }
+)
+
+watch(
+  babyInfo,
   () => {
     updateChart()
   },

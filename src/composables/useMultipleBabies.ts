@@ -276,6 +276,7 @@ export const useMultipleBabies = () => {
     if (info.birthDate && info.birthDate !== oldBirthDate) {
       const newBirthDate = parseLocalDate(info.birthDate)
       const today = getTodayLocal()
+      const todayStr = toLocalDateString(today)
 
       const validMeasurements = baby.measurements.filter(m => {
         const measureDate = parseLocalDate(m.date)
@@ -290,27 +291,41 @@ export const useMultipleBabies = () => {
         ageMonths: calculateAgeMonthsForBaby(babyId, m.date)
       }))
 
+      const babyCurrentAge = calculateAgeFromBirthDate(info.birthDate, todayStr)
       const maxAge = baby.measurements.length > 0
         ? Math.max(...baby.measurements.map(m => m.ageMonths))
-        : calculateAgeFromBirthDate(info.birthDate, toLocalDateString(getTodayLocal()))
-      
-      const existingPeriodIds = baby.specialPeriods.map(sp => sp.id)
+        : babyCurrentAge
+      const ageUpperBound = Math.max(maxAge, babyCurrentAge, 0)
+
+      const isDefaultPeriod = (sp: SpecialPeriod): boolean => {
+        return defaultSpecialPeriods.some(dp =>
+          dp.type === sp.type &&
+          Math.abs(dp.ageMonths - sp.ageMonths) < 0.3 &&
+          dp.label === sp.label
+        )
+      }
+
+      const keptCustomPeriods = baby.specialPeriods.filter(sp =>
+        !isDefaultPeriod(sp) && sp.ageMonths <= ageUpperBound
+      )
+
+      const existingIds = keptCustomPeriods.map(sp => sp.id)
       const autoPeriods = defaultSpecialPeriods
-        .filter(sp => sp.ageMonths <= Math.max(maxAge, 0) && 
-          !baby.specialPeriods.some(ep => ep.type === sp.type && Math.abs(ep.ageMonths - sp.ageMonths) < 0.3))
+        .filter(sp => sp.ageMonths <= ageUpperBound &&
+          !keptCustomPeriods.some(ep => ep.type === sp.type && Math.abs(ep.ageMonths - sp.ageMonths) < 0.3))
         .map((sp) => ({
           ...sp,
-          id: generateSpecialPeriodId([...existingPeriodIds])
+          id: generateSpecialPeriodId([...existingIds])
         }))
-      
-      baby.specialPeriods = [...baby.specialPeriods, ...autoPeriods]
+
+      baby.specialPeriods = [...keptCustomPeriods, ...autoPeriods]
         .sort((a, b) => a.ageMonths - b.ageMonths)
 
       if (removedCount > 0) {
         console.info(`[useMultipleBabies] 已删除 ${removedCount} 条早于新出生日期的测量记录`)
       }
 
-      console.info('[useMultipleBabies] 出生日期更新，已重算所有测量记录的月龄')
+      console.info('[useMultipleBabies] 出生日期更新，已重算测量记录月龄并收口特殊时期')
     }
   }
 
