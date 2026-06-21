@@ -19,8 +19,8 @@ export const nationalImmunizationSchedule: VaccineSchedule[] = [
   { id: 'mmr-2', vaccineId: 'mmr', vaccineName: '麻腮风疫苗', shortName: '麻腮风', ageMonths: 18, dose: 2, totalDoses: 2 },
   { id: 'hepa', vaccineId: 'hepa', vaccineName: '甲肝减毒活疫苗', shortName: '甲肝', ageMonths: 18, dose: 1, totalDoses: 1, description: '预防甲型肝炎' },
   { id: 'je-2', vaccineId: 'je', vaccineName: '乙脑减毒活疫苗', shortName: '乙脑', ageMonths: 24, dose: 2, totalDoses: 2 },
-  { id: 'bopv-4', vaccineId: 'bopv', vaccineName: '脊髓灰质炎减毒活疫苗', shortName: '脊灰', ageMonths: 48, dose: 4, totalDoses: 4 },
   { id: 'mcv-ac1', vaccineId: 'mcv-ac', vaccineName: 'A群C群流脑多糖疫苗', shortName: 'A+C群流脑', ageMonths: 36, dose: 1, totalDoses: 2, description: '预防A群和C群流行性脑脊髓膜炎' },
+  { id: 'bopv-4', vaccineId: 'bopv', vaccineName: '脊髓灰质炎减毒活疫苗', shortName: '脊灰', ageMonths: 48, dose: 4, totalDoses: 4 },
   { id: 'mcv-ac2', vaccineId: 'mcv-ac', vaccineName: 'A群C群流脑多糖疫苗', shortName: 'A+C群流脑', ageMonths: 72, dose: 2, totalDoses: 2 },
   { id: 'dt', vaccineId: 'dt', vaccineName: '白破二联疫苗', shortName: '白破', ageMonths: 72, dose: 1, totalDoses: 1, description: '预防白喉、破伤风' }
 ]

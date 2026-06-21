@@ -52,20 +52,22 @@ export const useVaccination = () => {
 
   const scheduledList = computed<ScheduledVaccination[]>(() => {
     const ageNow = getAgeMonthsNow()
-    return nationalImmunizationSchedule.map(schedule => {
-      const record = currentVaccinations.value.find(v => v.scheduleId === schedule.id) || null
-      let status: VaccinationStatus
-      if (record) {
-        status = 'done'
-      } else if (ageNow >= schedule.ageMonths + 1) {
-        status = 'overdue'
-      } else if (ageNow >= schedule.ageMonths - 0.01) {
-        status = 'due'
-      } else {
-        status = 'upcoming'
-      }
-      return { schedule, record, status }
-    })
+    return nationalImmunizationSchedule
+      .map(schedule => {
+        const record = currentVaccinations.value.find(v => v.scheduleId === schedule.id) || null
+        let status: VaccinationStatus
+        if (record) {
+          status = 'done'
+        } else if (ageNow >= schedule.ageMonths + 1) {
+          status = 'overdue'
+        } else if (ageNow >= schedule.ageMonths - 0.01) {
+          status = 'due'
+        } else {
+          status = 'upcoming'
+        }
+        return { schedule, record, status }
+      })
+      .sort((a, b) => a.schedule.ageMonths - b.schedule.ageMonths)
   })
 
   const progress = computed<VaccinationProgress>(() => {

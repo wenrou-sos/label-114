@@ -211,7 +211,7 @@ const handleDelete = (recordId: string) => {
                       </button>
                       <button
                         v-else-if="item.record"
-                        @click.stop
+                        @click.stop="handleDelete(item.record!.id)"
                         class="opacity-0 group-hover:opacity-100 p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all flex-shrink-0"
                       >
                         <Trash2 class="w-4 h-4" />
