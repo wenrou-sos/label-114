@@ -468,6 +468,19 @@ export const useMultipleBabies = () => {
     return Math.max(...sorted.map(m => m.ageMonths))
   }
 
+  const getBabyById = (babyId: string): Baby | undefined => {
+    return babies.value.find(b => b.id === babyId)
+  }
+
+  const getBabyInfoById = (babyId: string): BabyInfo | null => {
+    const baby = babies.value.find(b => b.id === babyId)
+    return baby ? baby.info : null
+  }
+
+  const getBabyMeasurementsById = (babyId: string): BabyMeasurement[] => {
+    return getSortedMeasurements(babyId)
+  }
+
   return {
     babies,
     currentBabyId,
@@ -489,6 +502,9 @@ export const useMultipleBabies = () => {
     getMaxDate,
     getMinDate,
     getMaxAgeMonths,
+    getBabyById,
+    getBabyInfoById,
+    getBabyMeasurementsById,
     addSpecialPeriodToBaby,
     updateSpecialPeriodForBaby,
     deleteSpecialPeriodFromBaby

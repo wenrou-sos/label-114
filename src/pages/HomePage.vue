@@ -17,6 +17,9 @@ const { measurements, maxAgeMonths, currentBabyId, deleteMeasurement } = useBaby
 
 const manageModalVisible = ref(false)
 
+const compareMode = ref(false)
+const compareBabyId = ref('')
+
 const handleManageBabies = () => {
   manageModalVisible.value = true
 }
@@ -24,6 +27,10 @@ const handleManageBabies = () => {
 watch(currentBabyId, () => {
   if (maxAgeMonths.value > 24 && currentAgeRange.value === '0-24') {
     currentAgeRange.value = '0-60'
+  }
+  if (compareBabyId.value === currentBabyId.value) {
+    compareBabyId.value = ''
+    compareMode.value = false
   }
 })
 
@@ -121,6 +128,8 @@ const handleAddModalClose = () => {
       <AgeRangeSwitch v-model="currentAgeRange" />
       
       <GrowthChart
+        v-model:compare-mode="compareMode"
+        v-model:compare-baby-id="compareBabyId"
         :indicator="currentIndicator"
         :age-range="currentAgeRange"
         @point-click="handlePointClick"
