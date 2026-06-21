@@ -12,8 +12,10 @@ import SpecialPeriodDetail from '../components/SpecialPeriodDetail.vue'
 import AddMeasurementModal from '../components/AddMeasurementModal.vue'
 import ManageBabiesModal from '../components/ManageBabiesModal.vue'
 import { useBabyData } from '../composables/useBabyData'
+import { useMultipleBabies } from '../composables/useMultipleBabies'
 
 const { measurements, maxAgeMonths, currentBabyId, deleteMeasurement } = useBabyData()
+const { babies } = useMultipleBabies()
 
 const manageModalVisible = ref(false)
 
@@ -33,6 +35,16 @@ watch(currentBabyId, () => {
     compareMode.value = false
   }
 })
+
+watch(
+  () => babies.value.some(b => b.id === compareBabyId.value),
+  (compareBabyExists) => {
+    if (compareMode.value && !compareBabyExists) {
+      compareMode.value = false
+      compareBabyId.value = ''
+    }
+  }
+)
 
 const currentIndicator = ref<GrowthIndicator>('weight')
 const currentAgeRange = ref<AgeRange>('0-24')
