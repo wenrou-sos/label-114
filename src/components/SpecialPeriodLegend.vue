@@ -3,17 +3,25 @@ import { ref, computed } from 'vue'
 import { Star, Baby, Thermometer, ChevronRight, Plus, X, Check, Trash2 } from 'lucide-vue-next'
 import type { AgeRange, SpecialPeriod, SpecialPeriodType } from '../types'
 import { useBabyData } from '../composables/useBabyData'
+import { useMultipleBabies } from '../composables/useMultipleBabies'
 
 interface Props {
   ageRange?: AgeRange
+  compareMode?: boolean
+  compareBabyId?: string
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  ageRange: undefined,
+  compareMode: false,
+  compareBabyId: ''
+})
 const emit = defineEmits<{
   (e: 'periodClick', period: SpecialPeriod): void
 }>()
 
-const { specialPeriods, addSpecialPeriod, deleteSpecialPeriod, maxAgeMonths } = useBabyData()
+const { specialPeriods, addSpecialPeriod, deleteSpecialPeriod, maxAgeMonths, babyInfo, currentBabyId } = useBabyData()
+const { getBabyInfoById } = useMultipleBabies()
 
 const addModalVisible = ref(false)
 
@@ -30,6 +38,15 @@ const isSubmitting = ref(false)
 const maxAllowedAgeMonths = computed(() => {
   return Math.max(maxAgeMonths.value, 0.5)
 })
+
+const compareBabyInfo = computed(() => {
+  if (!props.compareMode || !props.compareBabyId) return null
+  return getBabyInfoById(props.compareBabyId)
+})
+
+const comparePercentiles = [
+  { label: 'P50 (中位线)', color: '#FF8FA3', style: 'solid' }
+]
 
 const periodTypeOptions = [
   { value: 'growthSpurt' as const, label: '猛长期', color: '#FFB74D' },
@@ -138,118 +155,165 @@ const visiblePeriods = computed(() => {
 <template>
   <div class="bg-white rounded-2xl shadow-sm p-4 mb-4">
     <h3 class="text-lg font-semibold text-gray-800 mb-3">图例说明</h3>
-    
-    <div class="mb-4">
-      <h4 class="text-sm font-medium text-gray-600 mb-2">生长曲线</h4>
-      <div class="flex flex-wrap gap-3">
-        <div
-          v-for="p in percentiles"
-          :key="p.label"
-          class="flex items-center gap-2"
-        >
-          <div class="relative w-6 h-0.5">
-            <div 
-              class="absolute inset-0"
-              :style="{
-                backgroundColor: p.style === 'dashed' ? 'transparent' : p.color,
-                borderTop: p.style === 'dashed' ? `2px dashed ${p.color}` : 'none',
-                height: p.style === 'dashed' ? '0' : '2px',
-                top: p.style === 'dashed' ? '-1px' : '0'
-              }"
-            ></div>
-          </div>
-          <span class="text-xs text-gray-500">{{ p.label }}</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="mb-4">
-      <h4 class="text-sm font-medium text-gray-600 mb-2">特殊时期</h4>
-      <div class="flex flex-wrap gap-4">
-        <div
-          v-for="legend in legends"
-          :key="legend.type"
-          class="flex items-center gap-2"
-        >
-          <div 
-            class="w-6 h-6 rounded-full flex items-center justify-center"
-            :style="{ backgroundColor: legend.color + '20' }"
+
+    <div v-if="compareMode && compareBabyInfo" class="space-y-4">
+      <div>
+        <h4 class="text-sm font-medium text-gray-600 mb-2">生长曲线</h4>
+        <div class="flex flex-wrap gap-3">
+          <div
+            v-for="p in comparePercentiles"
+            :key="p.label"
+            class="flex items-center gap-2"
           >
-            <component 
-              :is="legend.icon" 
-              class="w-3.5 h-3.5"
-              :style="{ color: legend.color }"
-            />
+            <div class="relative w-6 h-0.5">
+              <div 
+                class="absolute inset-0"
+                :style="{
+                  backgroundColor: p.style === 'dashed' ? 'transparent' : p.color,
+                  borderTop: p.style === 'dashed' ? `2px dashed ${p.color}` : 'none',
+                  height: p.style === 'dashed' ? '0' : '2px',
+                  top: p.style === 'dashed' ? '-1px' : '0'
+                }"
+              ></div>
+            </div>
+            <span class="text-xs text-gray-500">{{ p.label }}</span>
           </div>
-          <span class="text-xs text-gray-500">{{ legend.label }}</span>
         </div>
       </div>
-      <button
-        @click="handleAddPeriod"
-        class="mt-3 w-full py-2 px-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs text-gray-600 flex items-center justify-center gap-1.5 transition-colors"
-      >
-        <Plus class="w-3.5 h-3.5" />
-        补充特殊时期
-      </button>
+
+      <div>
+        <h4 class="text-sm font-medium text-gray-600 mb-2">宝宝对比</h4>
+        <div class="space-y-2">
+          <div class="flex items-center gap-3 p-2.5 rounded-xl" style="background-color: rgba(255,107,107,0.08)">
+            <div class="w-6 h-1 rounded-full" style="background-color: #FF6B6B"></div>
+            <span class="text-sm font-medium text-gray-700">{{ babyInfo.name }}（当前）</span>
+            <span class="text-xs text-gray-400 ml-auto">实线 · 圆点</span>
+          </div>
+          <div class="flex items-center gap-3 p-2.5 rounded-xl" style="background-color: rgba(74,144,217,0.08)">
+            <div class="w-6 h-0.5 border-t-2 border-dashed" style="border-color: #4A90D9"></div>
+            <span class="text-sm font-medium text-gray-700">{{ compareBabyInfo.name }}</span>
+            <span class="text-xs text-gray-400 ml-auto">虚线 · 菱形</span>
+          </div>
+        </div>
+        <p class="mt-3 text-xs text-gray-400 leading-relaxed">
+          对比模式下仅显示 P50 中位线作为参照；点击蓝色对比点暂不支持详情/编辑。
+        </p>
+      </div>
     </div>
 
-    <div>
-      <div class="flex items-center justify-between mb-2">
-        <h4 class="text-sm font-medium text-gray-600">特殊时期记录</h4>
-        <span class="text-[10px] text-gray-400">点击查看详情，悬停可删除</span>
+    <template v-else>
+      <div class="mb-4">
+        <h4 class="text-sm font-medium text-gray-600 mb-2">生长曲线</h4>
+        <div class="flex flex-wrap gap-3">
+          <div
+            v-for="p in percentiles"
+            :key="p.label"
+            class="flex items-center gap-2"
+          >
+            <div class="relative w-6 h-0.5">
+              <div 
+                class="absolute inset-0"
+                :style="{
+                  backgroundColor: p.style === 'dashed' ? 'transparent' : p.color,
+                  borderTop: p.style === 'dashed' ? `2px dashed ${p.color}` : 'none',
+                  height: p.style === 'dashed' ? '0' : '2px',
+                  top: p.style === 'dashed' ? '-1px' : '0'
+                }"
+              ></div>
+            </div>
+            <span class="text-xs text-gray-500">{{ p.label }}</span>
+          </div>
+        </div>
       </div>
-      <div v-if="visiblePeriods.length > 0" class="space-y-2">
-        <div
-          v-for="(sp, idx) in visiblePeriods"
-          :key="sp.id"
-          class="relative group"
-        >
-          <button
-            @click="emit('periodClick', sp)"
-            class="w-full flex items-center gap-3 p-2.5 rounded-xl text-left active:scale-[0.98] transition-transform"
-            :style="{ backgroundColor: periodConfig[sp.type].color + '12' }"
+
+      <div class="mb-4">
+        <h4 class="text-sm font-medium text-gray-600 mb-2">特殊时期</h4>
+        <div class="flex flex-wrap gap-4">
+          <div
+            v-for="legend in legends"
+            :key="legend.type"
+            class="flex items-center gap-2"
           >
             <div 
-              class="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center"
-              :style="{ backgroundColor: periodConfig[sp.type].color + '30' }"
+              class="w-6 h-6 rounded-full flex items-center justify-center"
+              :style="{ backgroundColor: legend.color + '20' }"
             >
               <component 
-                :is="periodConfig[sp.type].icon" 
-                class="w-4 h-4"
-                :style="{ color: periodConfig[sp.type].color }"
+                :is="legend.icon" 
+                class="w-3.5 h-3.5"
+                :style="{ color: legend.color }"
               />
             </div>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm font-medium text-gray-800">{{ sp.label }}</span>
-                <span 
-                  class="text-xs px-1.5 py-0.5 rounded-full text-white font-tabular"
-                  :style="{ backgroundColor: periodConfig[sp.type].color }"
-                >
-                  {{ formatAge(sp.ageMonths) }}
-                </span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1 leading-relaxed line-clamp-1">{{ sp.description }}</p>
-            </div>
+            <span class="text-xs text-gray-500">{{ legend.label }}</span>
+          </div>
+        </div>
+        <button
+          @click="handleAddPeriod"
+          class="mt-3 w-full py-2 px-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-xs text-gray-600 flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <Plus class="w-3.5 h-3.5" />
+          补充特殊时期
+        </button>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-medium text-gray-600">特殊时期记录</h4>
+          <span class="text-[10px] text-gray-400">点击查看详情，悬停可删除</span>
+        </div>
+        <div v-if="visiblePeriods.length > 0" class="space-y-2">
+          <div
+            v-for="(sp, idx) in visiblePeriods"
+            :key="sp.id"
+            class="relative group"
+          >
             <button
-              @click.stop="handleDeletePeriod(sp.id)"
-              class="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              @click="emit('periodClick', sp)"
+              class="w-full flex items-center gap-3 p-2.5 rounded-xl text-left active:scale-[0.98] transition-transform"
+              :style="{ backgroundColor: periodConfig[sp.type].color + '12' }"
             >
-              <Trash2 class="w-4 h-4" />
+              <div 
+                class="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center"
+                :style="{ backgroundColor: periodConfig[sp.type].color + '30' }"
+              >
+                <component 
+                  :is="periodConfig[sp.type].icon" 
+                  class="w-4 h-4"
+                  :style="{ color: periodConfig[sp.type].color }"
+                />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-sm font-medium text-gray-800">{{ sp.label }}</span>
+                  <span 
+                    class="text-xs px-1.5 py-0.5 rounded-full text-white font-tabular"
+                    :style="{ backgroundColor: periodConfig[sp.type].color }"
+                  >
+                    {{ formatAge(sp.ageMonths) }}
+                  </span>
+                </div>
+                <p class="text-xs text-gray-500 mt-1 leading-relaxed line-clamp-1">{{ sp.description }}</p>
+              </div>
+              <button
+                @click.stop="handleDeletePeriod(sp.id)"
+                class="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+              >
+                <Trash2 class="w-4 h-4" />
+              </button>
             </button>
+          </div>
+        </div>
+        <div v-else class="text-center py-4">
+          <p class="text-xs text-gray-400 mb-2">当前月龄范围内暂无特殊时期记录</p>
+          <button
+            @click="handleAddPeriod"
+            class="text-xs text-pink-500 hover:text-pink-600 font-medium"
+          >
+            点击补充
           </button>
         </div>
       </div>
-      <div v-else class="text-center py-4">
-        <p class="text-xs text-gray-400 mb-2">当前月龄范围内暂无特殊时期记录</p>
-        <button
-          @click="handleAddPeriod"
-          class="text-xs text-pink-500 hover:text-pink-600 font-medium"
-        >
-          点击补充
-        </button>
-      </div>
-    </div>
+    </template>
 
     <Teleport to="body">
       <Transition name="modal">

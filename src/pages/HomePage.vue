@@ -138,6 +138,8 @@ const handleAddModalClose = () => {
       
       <SpecialPeriodLegend 
         :age-range="currentAgeRange" 
+        :compare-mode="compareMode"
+        :compare-baby-id="compareBabyId"
         @period-click="handlePeriodClick"
       />
       

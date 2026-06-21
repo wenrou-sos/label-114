@@ -448,10 +448,13 @@ const initChart = async () => {
     const p = params as { 
       seriesType: string
       seriesName: string
-      data: { measurementId?: string; periodId?: string; periodType?: string }
+      data: { measurementId?: string; periodId?: string; periodType?: string; babySource?: string }
     }
     if (p.seriesType === 'scatter') {
       if (p.data?.measurementId !== undefined) {
+        if (p.data.babySource === 'compare') {
+          return
+        }
         const measurement = measurements.value.find(m => m.id === p.data?.measurementId)
         if (measurement) {
           const index = measurements.value.findIndex(m => m.id === p.data?.measurementId)
@@ -512,6 +515,16 @@ watch(
   babyInfo,
   () => {
     updateChart()
+  },
+  { deep: true }
+)
+
+watch(
+  babies,
+  () => {
+    if (props.compareMode && props.compareBabyId) {
+      updateChart()
+    }
   },
   { deep: true }
 )
