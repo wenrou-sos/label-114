@@ -4,7 +4,6 @@ import * as echarts from 'echarts'
 import type { ECharts, EChartsOption } from 'echarts'
 import type { GrowthIndicator, AgeRange, BabyMeasurement, SpecialPeriod, WHODataPoint, PercentileKey } from '../types'
 import { getWHOData } from '../data/whoStandards'
-import { specialPeriods, babyInfo } from '../data/mockBabyData'
 import { useBabyData } from '../composables/useBabyData'
 import { Loader2 } from 'lucide-vue-next'
 
@@ -19,14 +18,14 @@ const emit = defineEmits<{
   (e: 'periodClick', period: SpecialPeriod): void
 }>()
 
-const { measurements } = useBabyData()
+const { measurements, babyInfo, specialPeriods, currentBabyId } = useBabyData()
 
 const chartRef = ref<HTMLElement | null>(null)
 const chartInstance = ref<ECharts | null>(null)
 const isLoading = ref(false)
 
 const currentWHOData = computed((): WHODataPoint[] => {
-  return getWHOData(babyInfo.gender, props.indicator, props.ageRange)
+  return getWHOData(babyInfo.value.gender, props.indicator, props.ageRange)
 })
 
 const filteredMeasurements = computed((): BabyMeasurement[] => {
@@ -117,7 +116,7 @@ const generateChartOption = (): EChartsOption => {
     })
   }
 
-  const filteredPeriods = specialPeriods.filter(sp => sp.ageMonths <= maxAge)
+  const filteredPeriods = specialPeriods.value.filter(sp => sp.ageMonths <= maxAge)
   const yMaxRaw = Math.max(...whoData.map(d => d.P97))
   const yMinRaw = Math.min(...whoData.map(d => d.P3))
   const yRange = Math.max(yMaxRaw - yMinRaw, 0.001)
@@ -334,7 +333,7 @@ const initChart = async () => {
           emit('pointClick', measurement, p.data.measurementIndex)
         }
       } else if (p.data?.periodId) {
-        const period = specialPeriods.find(sp => sp.id === p.data?.periodId)
+        const period = specialPeriods.value.find(sp => sp.id === p.data?.periodId)
         if (period) {
           emit('periodClick', period)
         }
@@ -355,7 +354,7 @@ const updateChart = () => {
 }
 
 watch(
-  () => [props.indicator, props.ageRange, measurements.value.length],
+  () => [props.indicator, props.ageRange, measurements.value.length, currentBabyId.value],
   () => {
     updateChart()
   },

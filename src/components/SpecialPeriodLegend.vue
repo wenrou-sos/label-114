@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { Star, Baby, Thermometer, ChevronRight } from 'lucide-vue-next'
 import type { AgeRange, SpecialPeriod, SpecialPeriodType } from '../types'
-import { specialPeriods } from '../data/mockBabyData'
+import { useBabyData } from '../composables/useBabyData'
 
 interface Props {
   ageRange?: AgeRange
@@ -12,6 +12,8 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'periodClick', period: SpecialPeriod): void
 }>()
+
+const { specialPeriods } = useBabyData()
 
 const periodConfig: Record<SpecialPeriodType, { label: string; color: string; icon: typeof Star }> = {
   growthSpurt: { label: '猛长期', color: '#FFB74D', icon: Star },
@@ -45,7 +47,7 @@ const formatAge = (ageMonths: number): string => {
 
 const visiblePeriods = computed(() => {
   const maxAge = props.ageRange === '0-60' ? 60 : 24
-  return specialPeriods
+  return specialPeriods.value
     .filter(sp => sp.ageMonths <= maxAge)
     .sort((a, b) => a.ageMonths - b.ageMonths)
 })

@@ -56,3 +56,15 @@ export interface BabyInfo {
   birthDate: string
   avatar?: string
 }
+
+export interface Baby {
+  id: string
+  info: BabyInfo
+  measurements: BabyMeasurement[]
+  specialPeriods: SpecialPeriod[]
+}
+
+export interface BabyStore {
+  babies: Baby[]
+  currentBabyId: string
+}

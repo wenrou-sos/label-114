@@ -10,9 +10,22 @@ import SpecialPeriodLegend from '../components/SpecialPeriodLegend.vue'
 import MeasurementDetail from '../components/MeasurementDetail.vue'
 import SpecialPeriodDetail from '../components/SpecialPeriodDetail.vue'
 import AddMeasurementModal from '../components/AddMeasurementModal.vue'
+import ManageBabiesModal from '../components/ManageBabiesModal.vue'
 import { useBabyData } from '../composables/useBabyData'
 
-const { measurements, maxAgeMonths } = useBabyData()
+const { measurements, maxAgeMonths, currentBabyId } = useBabyData()
+
+const manageModalVisible = ref(false)
+
+const handleManageBabies = () => {
+  manageModalVisible.value = true
+}
+
+watch(currentBabyId, () => {
+  if (maxAgeMonths.value > 24 && currentAgeRange.value === '0-24') {
+    currentAgeRange.value = '0-60'
+  }
+})
 
 const currentIndicator = ref<GrowthIndicator>('weight')
 const currentAgeRange = ref<AgeRange>('0-24')
@@ -61,7 +74,7 @@ const handleAddSuccess = () => {
 <template>
   <div class="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50 to-pink-50 pb-24">
     <div class="max-w-lg mx-auto px-4 py-6">
-      <Header />
+      <Header @manage="handleManageBabies" />
       
       <IndicatorSwitch v-model="currentIndicator" />
       
@@ -113,6 +126,11 @@ const handleAddSuccess = () => {
       :visible="addModalVisible"
       @close="addModalVisible = false"
       @success="handleAddSuccess"
+    />
+    
+    <ManageBabiesModal
+      :visible="manageModalVisible"
+      @close="manageModalVisible = false"
     />
   </div>
 </template>

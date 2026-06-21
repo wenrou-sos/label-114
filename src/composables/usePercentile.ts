@@ -1,20 +1,19 @@
 import { computed } from 'vue'
 import type { GrowthIndicator, BabyMeasurement } from '../types'
 import { getWHOData } from '../data/whoStandards'
-import { babyInfo } from '../data/mockBabyData'
 import { useBabyData } from './useBabyData'
 import { calculatePercentile, getPercentileLabel, getPercentileKey, getPercentileRange } from '../utils/percentile'
 import { calculateGrowthRate, getIndicatorUnit, getIndicatorLabel } from '../utils/growthRate'
 
 export const usePercentile = () => {
-  const { measurements } = useBabyData()
+  const { measurements, babyInfo } = useBabyData()
 
   const getMeasurementDetail = (
     measurement: BabyMeasurement,
     index: number,
     indicator: GrowthIndicator
   ) => {
-    const whoData = getWHOData(babyInfo.gender, indicator, '0-60')
+    const whoData = getWHOData(babyInfo.value.gender, indicator, '0-60')
     const value = measurement[indicator]
 
     if (value === undefined) {

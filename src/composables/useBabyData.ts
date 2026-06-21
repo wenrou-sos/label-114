@@ -1,149 +1,37 @@
-import { ref, computed, watch } from 'vue'
+import { computed } from 'vue'
 import type { BabyMeasurement } from '../types'
-import { 
-  babyMeasurements as initialMeasurements, 
-  babyInfo,
-  specialPeriods 
-} from '../data/mockBabyData'
-
-const STORAGE_KEY = 'baby-growth-measurements-v1'
-
-const loadFromStorage = (): BabyMeasurement[] => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return [...initialMeasurements]
-    const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed
-    }
-    return [...initialMeasurements]
-  } catch (e) {
-    console.warn('[useBabyData] 读取localStorage失败，使用初始数据', e)
-    return [...initialMeasurements]
-  }
-}
-
-const saveToStorage = (data: BabyMeasurement[]) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  } catch (e) {
-    console.warn('[useBabyData] 保存localStorage失败', e)
-  }
-}
-
-const measurements = ref<BabyMeasurement[]>(loadFromStorage())
-
-let nextId = Number(
-  Math.max(...measurements.value.map(m => parseInt(m.id, 10) || 0), 0)
-) + 1
-
-const toLocalDateString = (d: Date): string => {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-const getTodayLocal = (): Date => {
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  return now
-}
-
-const parseLocalDate = (dateStr: string): Date => {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  const date = new Date(y, m - 1, d)
-  date.setHours(0, 0, 0, 0)
-  return date
-}
-
-const sortedMeasurements = computed(() => 
-  [...measurements.value].sort((a, b) => 
-    parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime()
-  )
-)
-
-watch(
-  measurements,
-  (val) => {
-    saveToStorage(val)
-  },
-  { deep: true }
-)
+import { useMultipleBabies } from './useMultipleBabies'
 
 export const useBabyData = () => {
+  const {
+    currentBaby,
+    currentBabyInfo,
+    currentMeasurements,
+    currentSpecialPeriods,
+    currentBabyId,
+    getSortedMeasurements,
+    calculateAgeMonthsForBaby,
+    validateDateForBaby,
+    addMeasurementToBaby,
+    getDefaultDate,
+    getMaxDate,
+    getMinDate,
+    getMaxAgeMonths
+  } = useMultipleBabies()
+
+  const measurements = computed(() => 
+    getSortedMeasurements(currentBabyId.value)
+  )
+
+  const babyInfo = computed(() => currentBabyInfo.value)
+  const specialPeriods = computed(() => currentSpecialPeriods.value)
+
   const calculateAgeMonths = (measurementDate: string): number => {
-    const birth = parseLocalDate(babyInfo.birthDate)
-    const measure = parseLocalDate(measurementDate)
-    
-    let years = measure.getFullYear() - birth.getFullYear()
-    let months = measure.getMonth() - birth.getMonth()
-    let days = measure.getDate() - birth.getDate()
-    
-    let totalMonths = years * 12 + months
-    if (days < 0) {
-      totalMonths -= 1
-      const prevMonth = new Date(measure.getFullYear(), measure.getMonth(), 0)
-      days += prevMonth.getDate()
-    }
-    
-    const currentMonthStart = new Date(birth.getFullYear(), birth.getMonth() + totalMonths, birth.getDate())
-    const nextMonthStart = new Date(birth.getFullYear(), birth.getMonth() + totalMonths + 1, birth.getDate())
-    const totalDaysInPeriod = Math.max(
-      (nextMonthStart.getTime() - currentMonthStart.getTime()) / (1000 * 60 * 60 * 24),
-      1
-    )
-    const elapsedDays = Math.max(
-      (measure.getTime() - currentMonthStart.getTime()) / (1000 * 60 * 60 * 24),
-      0
-    )
-    const decimalMonths = Math.min(elapsedDays / totalDaysInPeriod, 0.999)
-    
-    return Math.round((totalMonths + decimalMonths) * 10) / 10
+    return calculateAgeMonthsForBaby(currentBabyId.value, measurementDate)
   }
 
   const validateDate = (dateStr: string): { valid: boolean; message?: string } => {
-    if (!dateStr) {
-      return { valid: false, message: '请选择测量日期' }
-    }
-    
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return { valid: false, message: '日期格式不正确' }
-    }
-    
-    const inputDate = parseLocalDate(dateStr)
-    
-    if (isNaN(inputDate.getTime())) {
-      return { valid: false, message: '日期格式不正确' }
-    }
-    
-    const birthDate = parseLocalDate(babyInfo.birthDate)
-    const today = getTodayLocal()
-    
-    if (inputDate.getTime() < birthDate.getTime()) {
-      return { 
-        valid: false, 
-        message: `测量日期不能早于出生日期（${babyInfo.birthDate}）` 
-      }
-    }
-    
-    if (inputDate.getTime() > today.getTime()) {
-      return { valid: false, message: '测量日期不能选择未来日期' }
-    }
-    
-    return { valid: true }
-  }
-
-  const getDefaultDate = (): string => {
-    return toLocalDateString(getTodayLocal())
-  }
-
-  const getMaxDate = (): string => {
-    return toLocalDateString(getTodayLocal())
-  }
-
-  const getMinDate = (): string => {
-    return babyInfo.birthDate
+    return validateDateForBaby(currentBabyId.value, dateStr)
   }
 
   const addMeasurement = (data: {
@@ -179,8 +67,7 @@ export const useBabyData = () => {
     
     const ageMonths = calculateAgeMonths(data.date)
     
-    const newMeasurement: BabyMeasurement = {
-      id: String(nextId++),
+    const measurement = addMeasurementToBaby(currentBabyId.value, {
       date: data.date,
       ageMonths,
       weight: data.weight,
@@ -190,32 +77,35 @@ export const useBabyData = () => {
       ...(data.headCircumference !== undefined && data.headCircumference !== null && !isNaN(data.headCircumference) 
         ? { headCircumference: data.headCircumference } 
         : {})
+    })
+    
+    if (measurement) {
+      return { success: true, measurement, message: '添加成功' }
     }
     
-    measurements.value.push(newMeasurement)
-    
-    return { 
-      success: true, 
-      measurement: newMeasurement,
-      message: '添加成功'
-    }
+    return { success: false, message: '添加失败' }
   }
 
   const maxAgeMonths = computed(() => {
-    if (sortedMeasurements.value.length === 0) return 0
-    return Math.max(...sortedMeasurements.value.map(m => m.ageMonths))
+    return getMaxAgeMonths(currentBabyId.value)
   })
 
+  const getMinDateForCurrentBaby = (): string => {
+    return getMinDate(currentBabyId.value)
+  }
+
   return {
-    measurements: sortedMeasurements,
+    measurements,
     babyInfo,
     specialPeriods,
+    currentBaby,
+    currentBabyId,
     addMeasurement,
     validateDate,
     calculateAgeMonths,
     maxAgeMonths,
     getDefaultDate,
     getMaxDate,
-    getMinDate
+    getMinDate: getMinDateForCurrentBaby
   }
 }

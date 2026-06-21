@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Calendar, User } from 'lucide-vue-next'
-import { babyInfo } from '../data/mockBabyData'
+import { useBabyData } from '../composables/useBabyData'
+import BabySelector from './BabySelector.vue'
+
+const emit = defineEmits<{
+  manage: []
+}>()
+
+const { babyInfo } = useBabyData()
 
 const parseLocalDate = (dateStr: string): Date => {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -9,7 +16,7 @@ const parseLocalDate = (dateStr: string): Date => {
 }
 
 const calculateAge = computed(() => {
-  const birth = parseLocalDate(babyInfo.birthDate)
+  const birth = parseLocalDate(babyInfo.value.birthDate)
   const now = new Date()
   now.setHours(0, 0, 0, 0)
   birth.setHours(0, 0, 0, 0)
@@ -27,7 +34,11 @@ const calculateAge = computed(() => {
   return `${months}月${days}天`
 })
 
-const genderText = computed(() => babyInfo.gender === 'boy' ? '男宝宝' : '女宝宝')
+const genderText = computed(() => babyInfo.value.gender === 'boy' ? '男宝宝' : '女宝宝')
+
+const handleManage = () => {
+  emit('manage')
+}
 </script>
 
 <template>
@@ -47,10 +58,13 @@ const genderText = computed(() => babyInfo.gender === 'boy' ? '男宝宝' : '女
           {{ genderText }}
         </div>
       </div>
-      <div class="flex-1">
-        <h1 class="text-xl font-bold text-gray-800 mb-1">{{ babyInfo.name }}</h1>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-bold text-gray-800 mb-1 truncate">{{ babyInfo.name }}</h1>
+          <BabySelector @manage="handleManage" />
+        </div>
         <div class="flex items-center gap-2 text-sm text-gray-500">
-          <Calendar class="w-4 h-4" />
+          <Calendar class="w-4 h-4 flex-shrink-0" />
           <span>{{ calculateAge }}</span>
         </div>
         <div class="text-xs text-gray-400 mt-1">
