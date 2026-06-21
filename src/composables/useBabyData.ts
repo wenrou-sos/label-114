@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import type { BabyMeasurement } from '../types'
+import type { BabyMeasurement, SpecialPeriod, SpecialPeriodType } from '../types'
 import { useMultipleBabies } from './useMultipleBabies'
 
 export const useBabyData = () => {
@@ -16,7 +16,10 @@ export const useBabyData = () => {
     getDefaultDate,
     getMaxDate,
     getMinDate,
-    getMaxAgeMonths
+    getMaxAgeMonths,
+    addSpecialPeriodToBaby,
+    updateSpecialPeriodForBaby,
+    deleteSpecialPeriodFromBaby
   } = useMultipleBabies()
 
   const measurements = computed(() => 
@@ -94,6 +97,40 @@ export const useBabyData = () => {
     return getMinDate(currentBabyId.value)
   }
 
+  const addSpecialPeriod = (data: Omit<SpecialPeriod, 'id'>): { success: boolean; message?: string; period?: SpecialPeriod } => {
+    if (!data.type || !['growthSpurt', 'teething', 'illness'].includes(data.type)) {
+      return { success: false, message: '请选择特殊时期类型' }
+    }
+    if (data.ageMonths === undefined || data.ageMonths < 0) {
+      return { success: false, message: '请填写有效的月龄' }
+    }
+    if (!data.label?.trim()) {
+      return { success: false, message: '请填写时期标签' }
+    }
+    
+    const period = addSpecialPeriodToBaby(currentBabyId.value, data)
+    if (period) {
+      return { success: true, period, message: '添加成功' }
+    }
+    return { success: false, message: '添加失败' }
+  }
+
+  const updateSpecialPeriod = (periodId: string, data: Partial<Omit<SpecialPeriod, 'id'>>): { success: boolean; message?: string; period?: SpecialPeriod } => {
+    const period = updateSpecialPeriodForBaby(currentBabyId.value, periodId, data)
+    if (period) {
+      return { success: true, period, message: '更新成功' }
+    }
+    return { success: false, message: '更新失败' }
+  }
+
+  const deleteSpecialPeriod = (periodId: string): { success: boolean; message?: string } => {
+    const success = deleteSpecialPeriodFromBaby(currentBabyId.value, periodId)
+    if (success) {
+      return { success: true, message: '删除成功' }
+    }
+    return { success: false, message: '删除失败' }
+  }
+
   return {
     measurements,
     babyInfo,
@@ -106,6 +143,9 @@ export const useBabyData = () => {
     maxAgeMonths,
     getDefaultDate,
     getMaxDate,
-    getMinDate: getMinDateForCurrentBaby
+    getMinDate: getMinDateForCurrentBaby,
+    addSpecialPeriod,
+    updateSpecialPeriod,
+    deleteSpecialPeriod
   }
 }

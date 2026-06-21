@@ -7,6 +7,7 @@ import {
 } from '../data/mockBabyData'
 
 const STORAGE_KEY = 'baby-growth-v2'
+const OLD_STORAGE_KEY = 'baby-growth'
 
 const parseLocalDate = (dateStr: string): Date => {
   const [y, m, d] = dateStr.split('-').map(Number)
@@ -19,6 +20,36 @@ const getTodayLocal = (): Date => {
   const now = new Date()
   now.setHours(0, 0, 0, 0)
   return now
+}
+
+const calculateAgeFromBirthDate = (birthDate: string, measurementDate: string): number => {
+  const birth = parseLocalDate(birthDate)
+  const measure = parseLocalDate(measurementDate)
+  
+  let years = measure.getFullYear() - birth.getFullYear()
+  let months = measure.getMonth() - birth.getMonth()
+  let days = measure.getDate() - birth.getDate()
+  
+  let totalMonths = years * 12 + months
+  if (days < 0) {
+    totalMonths -= 1
+    const prevMonth = new Date(measure.getFullYear(), measure.getMonth(), 0)
+    days += prevMonth.getDate()
+  }
+  
+  const currentMonthStart = new Date(birth.getFullYear(), birth.getMonth() + totalMonths, birth.getDate())
+  const nextMonthStart = new Date(birth.getFullYear(), birth.getMonth() + totalMonths + 1, birth.getDate())
+  const totalDaysInPeriod = Math.max(
+    (nextMonthStart.getTime() - currentMonthStart.getTime()) / (1000 * 60 * 60 * 24),
+    1
+  )
+  const elapsedDays = Math.max(
+    (measure.getTime() - currentMonthStart.getTime()) / (1000 * 60 * 60 * 24),
+    0
+  )
+  const decimalMonths = Math.min(elapsedDays / totalDaysInPeriod, 0.999)
+  
+  return Math.round((totalMonths + decimalMonths) * 10) / 10
 }
 
 const generateId = (): string => {
@@ -37,6 +68,24 @@ const getDefaultAvatar = (gender: 'boy' | 'girl'): string => {
   return `https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=${prompt}&image_size=square`
 }
 
+const defaultSpecialPeriods: Omit<SpecialPeriod, 'id'>[] = [
+  { type: 'growthSpurt', ageMonths: 0.5, label: '猛长期', description: '2-3周猛长期，宝宝食量增加，睡眠模式改变' },
+  { type: 'growthSpurt', ageMonths: 1.5, label: '猛长期', description: '6周猛长期，快速生长阶段' },
+  { type: 'growthSpurt', ageMonths: 3, label: '猛长期', description: '3月龄猛长期，生长加速期' },
+  { type: 'teething', ageMonths: 5, label: '出牙期', description: '开始出牙，可能伴随不适，食欲可能受影响' },
+  { type: 'growthSpurt', ageMonths: 6, label: '猛长期', description: '6月龄猛长期，添加辅食阶段' },
+  { type: 'teething', ageMonths: 10, label: '出牙期', description: '乳磨牙萌出' },
+  { type: 'growthSpurt', ageMonths: 12, label: '猛长期', description: '1岁猛长期，学步期能量消耗大' }
+]
+
+const generateSpecialPeriodId = (existingIds: string[]): string => {
+  const maxNum = Math.max(...existingIds.map(id => {
+    const match = id.match(/^sp(\d+)$/)
+    return match ? parseInt(match[1], 10) : 0
+  }), 0)
+  return `sp${maxNum + 1}`
+}
+
 const createInitialBaby = (): Baby => ({
   id: generateId(),
   info: { ...initialBabyInfo },
@@ -44,10 +93,47 @@ const createInitialBaby = (): Baby => ({
   specialPeriods: [...initialSpecialPeriods]
 })
 
+const migrateFromOldVersion = (): { babies: Baby[], currentBabyId: string } | null => {
+  try {
+    const oldRaw = localStorage.getItem(OLD_STORAGE_KEY)
+    if (!oldRaw) return null
+
+    const oldData = JSON.parse(oldRaw)
+    
+    if (!oldData.babyInfo || !oldData.babyMeasurements) {
+      return null
+    }
+
+    const baby: Baby = {
+      id: generateId(),
+      info: {
+        name: oldData.babyInfo.name || '宝宝',
+        gender: oldData.babyInfo.gender || 'boy',
+        birthDate: oldData.babyInfo.birthDate,
+        avatar: oldData.babyInfo.avatar || undefined
+      },
+      measurements: oldData.babyMeasurements || [],
+      specialPeriods: oldData.specialPeriods || []
+    }
+
+    console.info('[useMultipleBabies] 检测到旧版本数据，已成功迁移到多宝宝版本')
+    
+    return { babies: [baby], currentBabyId: baby.id }
+  } catch (e) {
+    console.warn('[useMultipleBabies] 旧版本数据迁移失败', e)
+    return null
+  }
+}
+
 const loadFromStorage = (): { babies: Baby[], currentBabyId: string } => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
+      const migratedData = migrateFromOldVersion()
+      if (migratedData) {
+        saveToStorage(migratedData)
+        return migratedData
+      }
       const baby = createInitialBaby()
       return { babies: [baby], currentBabyId: baby.id }
     }
@@ -59,10 +145,20 @@ const loadFromStorage = (): { babies: Baby[], currentBabyId: string } => {
         currentBabyId: currentExists ? parsed.currentBabyId : parsed.babies[0].id
       }
     }
+    const migratedData = migrateFromOldVersion()
+    if (migratedData) {
+      saveToStorage(migratedData)
+      return migratedData
+    }
     const baby = createInitialBaby()
     return { babies: [baby], currentBabyId: baby.id }
   } catch (e) {
     console.warn('[useMultipleBabies] 读取localStorage失败，使用初始数据', e)
+    const migratedData = migrateFromOldVersion()
+    if (migratedData) {
+      saveToStorage(migratedData)
+      return migratedData
+    }
     const baby = createInitialBaby()
     return { babies: [baby], currentBabyId: baby.id }
   }
@@ -105,6 +201,15 @@ export const useMultipleBabies = () => {
   }
 
   const addBaby = (info: Omit<BabyInfo, 'avatar'>): Baby => {
+    const today = toLocalDateString(getTodayLocal())
+    const babyAgeMonths = calculateAgeFromBirthDate(info.birthDate, today)
+    const periods = defaultSpecialPeriods
+      .filter(sp => sp.ageMonths <= Math.max(babyAgeMonths, 0))
+      .map((sp, idx) => ({
+        ...sp,
+        id: `sp${idx + 1}`
+      }))
+
     const newBaby: Baby = {
       id: generateId(),
       info: {
@@ -112,17 +217,100 @@ export const useMultipleBabies = () => {
         avatar: getDefaultAvatar(info.gender)
       },
       measurements: [],
-      specialPeriods: []
+      specialPeriods: periods
     }
     babies.value.push(newBaby)
     currentBabyId.value = newBaby.id
     return newBaby
   }
 
+  const addSpecialPeriodToBaby = (
+    babyId: string,
+    data: Omit<SpecialPeriod, 'id'>
+  ): SpecialPeriod | null => {
+    const baby = babies.value.find(b => b.id === babyId)
+    if (!baby) return null
+
+    const existingIds = baby.specialPeriods.map(sp => sp.id)
+    const newPeriod: SpecialPeriod = {
+      id: generateSpecialPeriodId(existingIds),
+      ...data
+    }
+    baby.specialPeriods.push(newPeriod)
+    return newPeriod
+  }
+
+  const updateSpecialPeriodForBaby = (
+    babyId: string,
+    periodId: string,
+    data: Partial<Omit<SpecialPeriod, 'id'>>
+  ): SpecialPeriod | null => {
+    const baby = babies.value.find(b => b.id === babyId)
+    if (!baby) return null
+
+    const period = baby.specialPeriods.find(sp => sp.id === periodId)
+    if (!period) return null
+
+    Object.assign(period, data)
+    return period
+  }
+
+  const deleteSpecialPeriodFromBaby = (babyId: string, periodId: string): boolean => {
+    const baby = babies.value.find(b => b.id === babyId)
+    if (!baby) return false
+
+    const index = baby.specialPeriods.findIndex(sp => sp.id === periodId)
+    if (index === -1) return false
+
+    baby.specialPeriods.splice(index, 1)
+    return true
+  }
+
   const updateBaby = (babyId: string, info: Partial<BabyInfo>) => {
     const baby = babies.value.find(b => b.id === babyId)
-    if (baby) {
-      baby.info = { ...baby.info, ...info }
+    if (!baby) return
+
+    const oldBirthDate = baby.info.birthDate
+    baby.info = { ...baby.info, ...info }
+
+    if (info.birthDate && info.birthDate !== oldBirthDate) {
+      const newBirthDate = parseLocalDate(info.birthDate)
+      const today = getTodayLocal()
+
+      const validMeasurements = baby.measurements.filter(m => {
+        const measureDate = parseLocalDate(m.date)
+        return measureDate.getTime() >= newBirthDate.getTime() && 
+               measureDate.getTime() <= today.getTime()
+      })
+
+      const removedCount = baby.measurements.length - validMeasurements.length
+
+      baby.measurements = validMeasurements.map(m => ({
+        ...m,
+        ageMonths: calculateAgeMonthsForBaby(babyId, m.date)
+      }))
+
+      const maxAge = baby.measurements.length > 0
+        ? Math.max(...baby.measurements.map(m => m.ageMonths))
+        : calculateAgeFromBirthDate(info.birthDate, toLocalDateString(getTodayLocal()))
+      
+      const existingPeriodIds = baby.specialPeriods.map(sp => sp.id)
+      const autoPeriods = defaultSpecialPeriods
+        .filter(sp => sp.ageMonths <= Math.max(maxAge, 0) && 
+          !baby.specialPeriods.some(ep => ep.type === sp.type && Math.abs(ep.ageMonths - sp.ageMonths) < 0.3))
+        .map((sp) => ({
+          ...sp,
+          id: generateSpecialPeriodId([...existingPeriodIds])
+        }))
+      
+      baby.specialPeriods = [...baby.specialPeriods, ...autoPeriods]
+        .sort((a, b) => a.ageMonths - b.ageMonths)
+
+      if (removedCount > 0) {
+        console.info(`[useMultipleBabies] 已删除 ${removedCount} 条早于新出生日期的测量记录`)
+      }
+
+      console.info('[useMultipleBabies] 出生日期更新，已重算所有测量记录的月龄')
     }
   }
 
@@ -165,34 +353,7 @@ export const useMultipleBabies = () => {
   const calculateAgeMonthsForBaby = (babyId: string, measurementDate: string): number => {
     const baby = babies.value.find(b => b.id === babyId)
     if (!baby) return 0
-    
-    const birth = parseLocalDate(baby.info.birthDate)
-    const measure = parseLocalDate(measurementDate)
-    
-    let years = measure.getFullYear() - birth.getFullYear()
-    let months = measure.getMonth() - birth.getMonth()
-    let days = measure.getDate() - birth.getDate()
-    
-    let totalMonths = years * 12 + months
-    if (days < 0) {
-      totalMonths -= 1
-      const prevMonth = new Date(measure.getFullYear(), measure.getMonth(), 0)
-      days += prevMonth.getDate()
-    }
-    
-    const currentMonthStart = new Date(birth.getFullYear(), birth.getMonth() + totalMonths, birth.getDate())
-    const nextMonthStart = new Date(birth.getFullYear(), birth.getMonth() + totalMonths + 1, birth.getDate())
-    const totalDaysInPeriod = Math.max(
-      (nextMonthStart.getTime() - currentMonthStart.getTime()) / (1000 * 60 * 60 * 24),
-      1
-    )
-    const elapsedDays = Math.max(
-      (measure.getTime() - currentMonthStart.getTime()) / (1000 * 60 * 60 * 24),
-      0
-    )
-    const decimalMonths = Math.min(elapsedDays / totalDaysInPeriod, 0.999)
-    
-    return Math.round((totalMonths + decimalMonths) * 10) / 10
+    return calculateAgeFromBirthDate(baby.info.birthDate, measurementDate)
   }
 
   const validateDateForBaby = (babyId: string, dateStr: string): { valid: boolean; message?: string } => {
@@ -269,6 +430,9 @@ export const useMultipleBabies = () => {
     getDefaultDate,
     getMaxDate,
     getMinDate,
-    getMaxAgeMonths
+    getMaxAgeMonths,
+    addSpecialPeriodToBaby,
+    updateSpecialPeriodForBaby,
+    deleteSpecialPeriodFromBaby
   }
 }
