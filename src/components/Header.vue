@@ -3,17 +3,27 @@ import { computed } from 'vue'
 import { Calendar, User } from 'lucide-vue-next'
 import { babyInfo } from '../data/mockBabyData'
 
+const parseLocalDate = (dateStr: string): Date => {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 const calculateAge = computed(() => {
-  const birth = new Date(babyInfo.birthDate)
+  const birth = parseLocalDate(babyInfo.birthDate)
   const now = new Date()
-  const months = (now.getFullYear() - birth.getFullYear()) * 12 + 
-                 (now.getMonth() - birth.getMonth())
-  const days = now.getDate() - birth.getDate()
+  now.setHours(0, 0, 0, 0)
+  birth.setHours(0, 0, 0, 0)
+  
+  let months = (now.getFullYear() - birth.getFullYear()) * 12 + 
+               (now.getMonth() - birth.getMonth())
+  let days = now.getDate() - birth.getDate()
   
   if (days < 0) {
+    months -= 1
     const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0)
-    return `${months - 1}月${prevMonth.getDate() + days}天`
+    days += prevMonth.getDate()
   }
+  
   return `${months}月${days}天`
 })
 

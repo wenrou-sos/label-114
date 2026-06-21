@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { BabyMeasurement } from '../types'
 import { 
   babyMeasurements as initialMeasurements, 
@@ -6,45 +6,98 @@ import {
   specialPeriods 
 } from '../data/mockBabyData'
 
-const measurements = ref<BabyMeasurement[]>([...initialMeasurements])
+const STORAGE_KEY = 'baby-growth-measurements-v1'
+
+const loadFromStorage = (): BabyMeasurement[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return [...initialMeasurements]
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed
+    }
+    return [...initialMeasurements]
+  } catch (e) {
+    console.warn('[useBabyData] 读取localStorage失败，使用初始数据', e)
+    return [...initialMeasurements]
+  }
+}
+
+const saveToStorage = (data: BabyMeasurement[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  } catch (e) {
+    console.warn('[useBabyData] 保存localStorage失败', e)
+  }
+}
+
+const measurements = ref<BabyMeasurement[]>(loadFromStorage())
 
 let nextId = Number(
-  Math.max(...initialMeasurements.map(m => parseInt(m.id)))
+  Math.max(...measurements.value.map(m => parseInt(m.id, 10) || 0), 0)
 ) + 1
 
-export const useBabyData = () => {
-  const sortedMeasurements = computed(() => 
-    [...measurements.value].sort((a, b) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
-    )
-  )
+const toLocalDateString = (d: Date): string => {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 
+const getTodayLocal = (): Date => {
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  return now
+}
+
+const parseLocalDate = (dateStr: string): Date => {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
+  date.setHours(0, 0, 0, 0)
+  return date
+}
+
+const sortedMeasurements = computed(() => 
+  [...measurements.value].sort((a, b) => 
+    parseLocalDate(a.date).getTime() - parseLocalDate(b.date).getTime()
+  )
+)
+
+watch(
+  measurements,
+  (val) => {
+    saveToStorage(val)
+  },
+  { deep: true }
+)
+
+export const useBabyData = () => {
   const calculateAgeMonths = (measurementDate: string): number => {
-    const birth = new Date(babyInfo.birthDate)
-    const measure = new Date(measurementDate)
+    const birth = parseLocalDate(babyInfo.birthDate)
+    const measure = parseLocalDate(measurementDate)
     
-    const years = measure.getFullYear() - birth.getFullYear()
-    const months = measure.getMonth() - birth.getMonth()
-    const days = measure.getDate() - birth.getDate()
+    let years = measure.getFullYear() - birth.getFullYear()
+    let months = measure.getMonth() - birth.getMonth()
+    let days = measure.getDate() - birth.getDate()
     
     let totalMonths = years * 12 + months
     if (days < 0) {
       totalMonths -= 1
+      const prevMonth = new Date(measure.getFullYear(), measure.getMonth(), 0)
+      days += prevMonth.getDate()
     }
     
-    const birthClone = new Date(birth)
-    birthClone.setMonth(birthClone.getMonth() + totalMonths)
-    const daysInMonth = new Date(
-      birthClone.getFullYear(),
-      birthClone.getMonth() + 1,
+    const currentMonthStart = new Date(birth.getFullYear(), birth.getMonth() + totalMonths, birth.getDate())
+    const nextMonthStart = new Date(birth.getFullYear(), birth.getMonth() + totalMonths + 1, birth.getDate())
+    const totalDaysInPeriod = Math.max(
+      (nextMonthStart.getTime() - currentMonthStart.getTime()) / (1000 * 60 * 60 * 24),
+      1
+    )
+    const elapsedDays = Math.max(
+      (measure.getTime() - currentMonthStart.getTime()) / (1000 * 60 * 60 * 24),
       0
-    ).getDate()
-    
-    const remainingDays = days < 0 
-      ? days + daysInMonth 
-      : days
-    
-    const decimalMonths = remainingDays / daysInMonth
+    )
+    const decimalMonths = Math.min(elapsedDays / totalDaysInPeriod, 0.999)
     
     return Math.round((totalMonths + decimalMonths) * 10) / 10
   }
@@ -54,27 +107,43 @@ export const useBabyData = () => {
       return { valid: false, message: '请选择测量日期' }
     }
     
-    const inputDate = new Date(dateStr)
-    const birthDate = new Date(babyInfo.birthDate)
-    const today = new Date()
-    today.setHours(23, 59, 59, 999)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      return { valid: false, message: '日期格式不正确' }
+    }
+    
+    const inputDate = parseLocalDate(dateStr)
     
     if (isNaN(inputDate.getTime())) {
       return { valid: false, message: '日期格式不正确' }
     }
     
-    if (inputDate < birthDate) {
+    const birthDate = parseLocalDate(babyInfo.birthDate)
+    const today = getTodayLocal()
+    
+    if (inputDate.getTime() < birthDate.getTime()) {
       return { 
         valid: false, 
         message: `测量日期不能早于出生日期（${babyInfo.birthDate}）` 
       }
     }
     
-    if (inputDate > today) {
+    if (inputDate.getTime() > today.getTime()) {
       return { valid: false, message: '测量日期不能选择未来日期' }
     }
     
     return { valid: true }
+  }
+
+  const getDefaultDate = (): string => {
+    return toLocalDateString(getTodayLocal())
+  }
+
+  const getMaxDate = (): string => {
+    return toLocalDateString(getTodayLocal())
+  }
+
+  const getMinDate = (): string => {
+    return babyInfo.birthDate
   }
 
   const addMeasurement = (data: {
@@ -144,6 +213,9 @@ export const useBabyData = () => {
     addMeasurement,
     validateDate,
     calculateAgeMonths,
-    maxAgeMonths
+    maxAgeMonths,
+    getDefaultDate,
+    getMaxDate,
+    getMinDate
   }
 }

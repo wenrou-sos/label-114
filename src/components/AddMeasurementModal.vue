@@ -17,7 +17,15 @@ const emit = defineEmits<{
   (e: 'success'): void
 }>()
 
-const { babyInfo, validateDate, calculateAgeMonths, addMeasurement } = useBabyData()
+const { 
+  babyInfo, 
+  validateDate, 
+  calculateAgeMonths, 
+  addMeasurement,
+  getDefaultDate,
+  getMaxDate,
+  getMinDate
+} = useBabyData()
 
 const formData = ref({
   date: '',
@@ -30,17 +38,8 @@ const errors = ref<Record<string, string>>({})
 const submitting = ref(false)
 const showSuccess = ref(false)
 
-const getDefaultDate = (): string => {
-  const today = new Date()
-  return today.toISOString().split('T')[0]
-}
-
-const maxDate = computed(() => {
-  const today = new Date()
-  return today.toISOString().split('T')[0]
-})
-
-const minDate = computed(() => babyInfo.birthDate)
+const maxDate = computed(() => getMaxDate())
+const minDate = computed(() => getMinDate())
 
 const computedAgeMonths = computed(() => {
   if (!formData.value.date) return null
