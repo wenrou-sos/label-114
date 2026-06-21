@@ -13,7 +13,7 @@ import AddMeasurementModal from '../components/AddMeasurementModal.vue'
 import ManageBabiesModal from '../components/ManageBabiesModal.vue'
 import { useBabyData } from '../composables/useBabyData'
 
-const { measurements, maxAgeMonths, currentBabyId } = useBabyData()
+const { measurements, maxAgeMonths, currentBabyId, deleteMeasurement } = useBabyData()
 
 const manageModalVisible = ref(false)
 
@@ -44,6 +44,8 @@ const periodDetailVisible = ref(false)
 const selectedPeriod = ref<SpecialPeriod | null>(null)
 
 const addModalVisible = ref(false)
+const addModalMode = ref<'add' | 'edit'>('add')
+const editingMeasurement = ref<BabyMeasurement | null>(null)
 
 const handlePointClick = (measurement: BabyMeasurement, index: number) => {
   selectedMeasurement.value = measurement
@@ -53,6 +55,20 @@ const handlePointClick = (measurement: BabyMeasurement, index: number) => {
 
 const handleCloseDetail = () => {
   detailVisible.value = false
+}
+
+const handleEditMeasurement = (measurement: BabyMeasurement) => {
+  detailVisible.value = false
+  editingMeasurement.value = measurement
+  addModalMode.value = 'edit'
+  addModalVisible.value = true
+}
+
+const handleDeleteMeasurement = (measurement: BabyMeasurement) => {
+  deleteMeasurement(measurement.id)
+  if (maxAgeMonths.value <= 24 && currentAgeRange.value === '0-60') {
+    currentAgeRange.value = '0-24'
+  }
 }
 
 const handlePeriodClick = (period: SpecialPeriod) => {
@@ -65,9 +81,33 @@ const handleClosePeriodDetail = () => {
 }
 
 const handleAddSuccess = () => {
+  editingMeasurement.value = null
+  addModalMode.value = 'add'
   if (maxAgeMonths.value > 24 && currentAgeRange.value === '0-24') {
     currentAgeRange.value = '0-60'
   }
+}
+
+const handleAddButtonClick = () => {
+  editingMeasurement.value = null
+  addModalMode.value = 'add'
+  addModalVisible.value = true
+}
+
+const handleAddModalClose = () => {
+  addModalVisible.value = false
+  setTimeout(() => {
+    if (editingMeasurement.value) {
+      const idx = measurements.value.findIndex(m => m.id === editingMeasurement.value!.id)
+      if (idx !== -1) {
+        selectedMeasurement.value = measurements.value[idx]
+        selectedMeasurementIndex.value = idx
+        detailVisible.value = true
+      }
+    }
+    editingMeasurement.value = null
+    addModalMode.value = 'add'
+  }, 0)
 }
 </script>
 
@@ -100,7 +140,7 @@ const handleAddSuccess = () => {
     
     <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-30">
       <button
-        @click="addModalVisible = true"
+        @click="handleAddButtonClick"
         class="flex items-center gap-2 px-6 py-3.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-semibold shadow-xl shadow-pink-300/60 hover:shadow-pink-400/70 transition-all hover:-translate-y-0.5 active:translate-y-0 active:shadow-pink-400/50"
       >
         <Plus class="w-5 h-5" />
@@ -114,6 +154,8 @@ const handleAddSuccess = () => {
       :measurement-index="selectedMeasurementIndex"
       :indicator="currentIndicator"
       @close="handleCloseDetail"
+      @edit="handleEditMeasurement"
+      @delete="handleDeleteMeasurement"
     />
     
     <SpecialPeriodDetail
@@ -124,7 +166,9 @@ const handleAddSuccess = () => {
     
     <AddMeasurementModal
       :visible="addModalVisible"
-      @close="addModalVisible = false"
+      :mode="addModalMode"
+      :edit-measurement="editingMeasurement"
+      @close="handleAddModalClose"
       @success="handleAddSuccess"
     />
     

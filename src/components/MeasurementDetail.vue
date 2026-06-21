@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { X, Calendar, TrendingUp, Percent, Activity } from 'lucide-vue-next'
+import { ref, computed } from 'vue'
+import { X, Calendar, TrendingUp, Percent, Activity, Edit2, Trash2, AlertTriangle } from 'lucide-vue-next'
 import type { GrowthIndicator, BabyMeasurement } from '../types'
 import { usePercentile } from '../composables/usePercentile'
 
@@ -18,9 +18,13 @@ interface Props {
 const props = defineProps<Props>()
 const emit = defineEmits<{
   (e: 'close'): void
+  (e: 'edit', measurement: BabyMeasurement): void
+  (e: 'delete', measurement: BabyMeasurement): void
 }>()
 
 const { getMeasurementDetail, getGrowthStatus } = usePercentile()
+
+const confirmDeleteVisible = ref(false)
 
 const detail = computed(() => {
   if (!props.measurement) return null
@@ -35,6 +39,28 @@ const growthStatus = computed(() => {
 const formatDate = (dateStr: string): string => {
   const date = new Date(dateStr)
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`
+}
+
+const handleEdit = () => {
+  if (props.measurement) {
+    emit('edit', props.measurement)
+  }
+}
+
+const handleDeleteClick = () => {
+  confirmDeleteVisible.value = true
+}
+
+const handleCancelDelete = () => {
+  confirmDeleteVisible.value = false
+}
+
+const handleConfirmDelete = () => {
+  if (props.measurement) {
+    emit('delete', props.measurement)
+    confirmDeleteVisible.value = false
+    emit('close')
+  }
 }
 </script>
 
@@ -198,8 +224,62 @@ const formatDate = (dateStr: string): string => {
                 如发现持续异常请及时咨询医生。
               </p>
             </div>
+
+            <div class="mt-5 flex gap-3">
+              <button
+                type="button"
+                @click="handleEdit"
+                class="flex-1 py-3.5 rounded-xl bg-blue-50 text-blue-600 font-semibold hover:bg-blue-100 transition-colors flex items-center justify-center gap-2"
+              >
+                <Edit2 class="w-5 h-5" />
+                编辑记录
+              </button>
+              <button
+                type="button"
+                @click="handleDeleteClick"
+                class="flex-1 py-3.5 rounded-xl bg-red-50 text-red-600 font-semibold hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 class="w-5 h-5" />
+                删除记录
+              </button>
+            </div>
           </div>
         </div>
+
+        <Transition name="fade">
+          <div
+            v-if="confirmDeleteVisible"
+            class="absolute inset-0 z-20 flex items-center justify-center bg-black/50"
+          >
+            <div class="bg-white rounded-2xl p-6 mx-4 max-w-sm w-full shadow-2xl">
+              <div class="flex items-start gap-4">
+                <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle class="w-6 h-6 text-red-500" />
+                </div>
+                <div class="flex-1">
+                  <h4 class="font-bold text-gray-800 mb-1">确认删除</h4>
+                  <p class="text-sm text-gray-500 mb-4">
+                    删除后此测量记录将永久清除，无法恢复。确定要删除吗？
+                  </p>
+                  <div class="flex gap-3">
+                    <button
+                      class="flex-1 py-2.5 px-4 rounded-xl font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors"
+                      @click="handleCancelDelete"
+                    >
+                      取消
+                    </button>
+                    <button
+                      class="flex-1 py-2.5 px-4 rounded-xl font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
+                      @click="handleConfirmDelete"
+                    >
+                      确认删除
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Transition>
       </div>
     </Transition>
   </Teleport>
@@ -226,5 +306,14 @@ const formatDate = (dateStr: string): string => {
   .modal-leave-to .relative {
     transform: translateY(0) scale(0.95);
   }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease-out;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { X, Calendar, Scale, Ruler, Headphones, Check, AlertCircle } from 'lucide-vue-next'
+import type { BabyMeasurement } from '../types'
 import { useBabyData } from '../composables/useBabyData'
 
 defineOptions({
@@ -9,9 +10,14 @@ defineOptions({
 
 interface Props {
   visible: boolean
+  mode?: 'add' | 'edit'
+  editMeasurement?: BabyMeasurement | null
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  mode: 'add',
+  editMeasurement: null
+})
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'success'): void
@@ -22,6 +28,7 @@ const {
   validateDate, 
   calculateAgeMonths, 
   addMeasurement,
+  updateMeasurement,
   getDefaultDate,
   getMaxDate,
   getMinDate
@@ -41,6 +48,13 @@ const showSuccess = ref(false)
 const maxDate = computed(() => getMaxDate())
 const minDate = computed(() => getMinDate())
 
+const modalTitle = computed(() => props.mode === 'edit' ? '编辑测量记录' : '添加测量记录')
+const submitButtonText = computed(() => {
+  if (submitting.value) return props.mode === 'edit' ? '保存中...' : '添加中...'
+  return props.mode === 'edit' ? '保存修改' : '确定添加'
+})
+const successText = computed(() => props.mode === 'edit' ? '更新成功！' : '添加成功！')
+
 const computedAgeMonths = computed(() => {
   if (!formData.value.date) return null
   const validation = validateDate(formData.value.date)
@@ -50,11 +64,21 @@ const computedAgeMonths = computed(() => {
 
 watch(() => props.visible, (val) => {
   if (val) {
-    formData.value = {
-      date: getDefaultDate(),
-      weight: '',
-      height: '',
-      headCircumference: ''
+    if (props.mode === 'edit' && props.editMeasurement) {
+      const m = props.editMeasurement
+      formData.value = {
+        date: m.date,
+        weight: m.weight !== undefined ? m.weight : '',
+        height: m.height !== undefined ? m.height : '',
+        headCircumference: m.headCircumference !== undefined ? m.headCircumference : ''
+      }
+    } else {
+      formData.value = {
+        date: getDefaultDate(),
+        weight: '',
+        height: '',
+        headCircumference: ''
+      }
     }
     errors.value = {}
     showSuccess.value = false
@@ -122,12 +146,19 @@ const handleSubmit = async () => {
   
   await new Promise(resolve => setTimeout(resolve, 300))
   
-  const result = addMeasurement({
+  const payload = {
     date: formData.value.date,
     weight: formData.value.weight !== '' ? Number(formData.value.weight) : undefined,
     height: formData.value.height !== '' ? Number(formData.value.height) : undefined,
     headCircumference: formData.value.headCircumference !== '' ? Number(formData.value.headCircumference) : undefined
-  })
+  }
+
+  let result
+  if (props.mode === 'edit' && props.editMeasurement) {
+    result = updateMeasurement(props.editMeasurement.id, payload)
+  } else {
+    result = addMeasurement(payload)
+  }
   
   submitting.value = false
   
@@ -138,7 +169,7 @@ const handleSubmit = async () => {
       emit('close')
     }, 800)
   } else {
-    errors.value.submit = result.message || '添加失败，请重试'
+    errors.value.submit = result.message || '保存失败，请重试'
   }
 }
 </script>
@@ -155,7 +186,7 @@ const handleSubmit = async () => {
         
         <div class="relative bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[90vh] overflow-hidden shadow-2xl transform transition-all">
           <div class="sticky top-0 bg-gradient-to-r from-pink-400 to-rose-400 px-6 py-4 flex items-center justify-between z-10">
-            <h3 class="text-lg font-bold text-white">添加测量记录</h3>
+            <h3 class="text-lg font-bold text-white">{{ modalTitle }}</h3>
             <button
               v-if="!showSuccess"
               @click="emit('close')"
@@ -169,7 +200,7 @@ const handleSubmit = async () => {
             <div class="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-4 animate-bounce">
               <Check class="w-10 h-10 text-green-500" />
             </div>
-            <h4 class="text-lg font-bold text-gray-800">添加成功！</h4>
+            <h4 class="text-lg font-bold text-gray-800">{{ successText }}</h4>
             <p class="text-sm text-gray-500 mt-2">图表已自动更新</p>
           </div>
           
@@ -314,8 +345,7 @@ const handleSubmit = async () => {
                 :disabled="submitting"
                 class="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-pink-400 to-rose-400 text-white font-medium shadow-lg shadow-pink-200 transition-all hover:shadow-pink-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <span v-if="submitting">添加中...</span>
-                <span v-else>确定添加</span>
+                {{ submitButtonText }}
               </button>
             </div>
 

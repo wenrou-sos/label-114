@@ -13,6 +13,8 @@ export const useBabyData = () => {
     calculateAgeMonthsForBaby,
     validateDateForBaby,
     addMeasurementToBaby,
+    updateMeasurementInBaby,
+    deleteMeasurementFromBaby,
     getDefaultDate,
     getMaxDate,
     getMinDate,
@@ -131,6 +133,68 @@ export const useBabyData = () => {
     return { success: false, message: '删除失败' }
   }
 
+  const updateMeasurement = (
+    measurementId: string,
+    data: {
+      date: string
+      weight?: number
+      height?: number
+      headCircumference?: number
+    }
+  ): { success: boolean; message?: string; measurement?: BabyMeasurement } => {
+    const dateValidation = validateDate(data.date)
+    if (!dateValidation.valid) {
+      return { success: false, message: dateValidation.message }
+    }
+    
+    if (data.weight === undefined || data.weight === null || isNaN(data.weight)) {
+      return { success: false, message: '请填写体重（必填）' }
+    }
+    
+    if (data.weight <= 0 || data.weight > 50) {
+      return { success: false, message: '体重数值不在合理范围内（0-50kg）' }
+    }
+    
+    if (data.height !== undefined && data.height !== null && !isNaN(data.height)) {
+      if (data.height <= 0 || data.height > 200) {
+        return { success: false, message: '身高数值不在合理范围内（0-200cm）' }
+      }
+    }
+    
+    if (data.headCircumference !== undefined && data.headCircumference !== null && !isNaN(data.headCircumference)) {
+      if (data.headCircumference <= 0 || data.headCircumference > 100) {
+        return { success: false, message: '头围数值不在合理范围内（0-100cm）' }
+      }
+    }
+    
+    const ageMonths = calculateAgeMonths(data.date)
+    
+    const measurement = updateMeasurementInBaby(currentBabyId.value, measurementId, {
+      date: data.date,
+      weight: data.weight,
+      height: data.height !== undefined && data.height !== null && !isNaN(data.height) 
+        ? data.height 
+        : undefined,
+      headCircumference: data.headCircumference !== undefined && data.headCircumference !== null && !isNaN(data.headCircumference) 
+        ? data.headCircumference 
+        : undefined
+    })
+    
+    if (measurement) {
+      return { success: true, measurement, message: '更新成功' }
+    }
+    
+    return { success: false, message: '更新失败' }
+  }
+
+  const deleteMeasurement = (measurementId: string): { success: boolean; message?: string } => {
+    const success = deleteMeasurementFromBaby(currentBabyId.value, measurementId)
+    if (success) {
+      return { success: true, message: '删除成功' }
+    }
+    return { success: false, message: '删除失败，记录不存在' }
+  }
+
   return {
     measurements,
     babyInfo,
@@ -146,6 +210,8 @@ export const useBabyData = () => {
     getMinDate: getMinDateForCurrentBaby,
     addSpecialPeriod,
     updateSpecialPeriod,
-    deleteSpecialPeriod
+    deleteSpecialPeriod,
+    updateMeasurement,
+    deleteMeasurement
   }
 }

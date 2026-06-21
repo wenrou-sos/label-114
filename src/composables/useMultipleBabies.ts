@@ -342,6 +342,47 @@ export const useMultipleBabies = () => {
     return newMeasurement
   }
 
+  const updateMeasurementInBaby = (
+    babyId: string,
+    measurementId: string,
+    data: {
+      date?: string
+      weight?: number
+      height?: number
+      headCircumference?: number
+    }
+  ): BabyMeasurement | null => {
+    const baby = babies.value.find(b => b.id === babyId)
+    if (!baby) return null
+
+    const measurement = baby.measurements.find(m => m.id === measurementId)
+    if (!measurement) return null
+
+    if (data.date !== undefined) {
+      measurement.date = data.date
+      measurement.ageMonths = calculateAgeMonthsForBaby(babyId, data.date)
+    }
+    if (data.weight !== undefined) measurement.weight = data.weight
+    else if (Object.keys(data).includes('weight')) delete measurement.weight
+    if (data.height !== undefined) measurement.height = data.height
+    else if (Object.keys(data).includes('height')) delete measurement.height
+    if (data.headCircumference !== undefined) measurement.headCircumference = data.headCircumference
+    else if (Object.keys(data).includes('headCircumference')) delete measurement.headCircumference
+
+    return measurement
+  }
+
+  const deleteMeasurementFromBaby = (babyId: string, measurementId: string): boolean => {
+    const baby = babies.value.find(b => b.id === babyId)
+    if (!baby) return false
+
+    const index = baby.measurements.findIndex(m => m.id === measurementId)
+    if (index === -1) return false
+
+    baby.measurements.splice(index, 1)
+    return true
+  }
+
   const getSortedMeasurements = (babyId: string) => {
     const baby = babies.value.find(b => b.id === babyId)
     if (!baby) return []
@@ -424,6 +465,8 @@ export const useMultipleBabies = () => {
     updateBaby,
     deleteBaby,
     addMeasurementToBaby,
+    updateMeasurementInBaby,
+    deleteMeasurementFromBaby,
     getSortedMeasurements,
     calculateAgeMonthsForBaby,
     validateDateForBaby,
