@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { Plus } from 'lucide-vue-next'
-import type { GrowthIndicator, AgeRange, BabyMeasurement, SpecialPeriod } from '../types'
+import type { GrowthIndicator, AgeRange, BabyMeasurement, SpecialPeriod, VaccinationRecord } from '../types'
 import Header from '../components/Header.vue'
 import IndicatorSwitch from '../components/IndicatorSwitch.vue'
 import AgeRangeSwitch from '../components/AgeRangeSwitch.vue'
@@ -11,6 +11,9 @@ import MeasurementDetail from '../components/MeasurementDetail.vue'
 import SpecialPeriodDetail from '../components/SpecialPeriodDetail.vue'
 import AddMeasurementModal from '../components/AddMeasurementModal.vue'
 import ManageBabiesModal from '../components/ManageBabiesModal.vue'
+import VaccinationProgress from '../components/VaccinationProgress.vue'
+import VaccinationList from '../components/VaccinationList.vue'
+import VaccinationFormModal from '../components/VaccinationFormModal.vue'
 import { useBabyData } from '../composables/useBabyData'
 import { useMultipleBabies } from '../composables/useMultipleBabies'
 
@@ -22,8 +25,40 @@ const manageModalVisible = ref(false)
 const compareMode = ref(false)
 const compareBabyId = ref('')
 
+const vaccinationListVisible = ref(false)
+const vaccinationFormVisible = ref(false)
+const vaccinationFormMode = ref<'add' | 'edit'>('add')
+const currentVaccinationScheduleId = ref('')
+const editingVaccination = ref<VaccinationRecord | null>(null)
+
 const handleManageBabies = () => {
   manageModalVisible.value = true
+}
+
+const handleOpenVaccinationList = () => {
+  vaccinationListVisible.value = true
+}
+
+const handleMarkVaccination = (scheduleId: string) => {
+  vaccinationListVisible.value = false
+  currentVaccinationScheduleId.value = scheduleId
+  editingVaccination.value = null
+  vaccinationFormMode.value = 'add'
+  vaccinationFormVisible.value = true
+}
+
+const handleEditVaccination = (record: VaccinationRecord) => {
+  vaccinationListVisible.value = false
+  editingVaccination.value = record
+  currentVaccinationScheduleId.value = ''
+  vaccinationFormMode.value = 'edit'
+  vaccinationFormVisible.value = true
+}
+
+const handleVaccinationSuccess = () => {
+  editingVaccination.value = null
+  currentVaccinationScheduleId.value = ''
+  vaccinationFormMode.value = 'add'
 }
 
 watch(currentBabyId, () => {
@@ -155,6 +190,8 @@ const handleAddModalClose = () => {
         @period-click="handlePeriodClick"
       />
       
+      <VaccinationProgress @open-list="handleOpenVaccinationList" />
+      
       <div class="text-center text-xs text-gray-400 mt-6 pb-4">
         <p>双指捏合可缩放图表，左右滑动可查看不同月龄段</p>
         <p class="mt-1">点击测量点或特殊时期标记可查看详情</p>
@@ -198,6 +235,23 @@ const handleAddModalClose = () => {
     <ManageBabiesModal
       :visible="manageModalVisible"
       @close="manageModalVisible = false"
+    />
+    
+    <VaccinationList
+      :visible="vaccinationListVisible"
+      @close="vaccinationListVisible = false"
+      @mark="handleMarkVaccination"
+      @edit="handleEditVaccination"
+      @delete="() => {}"
+    />
+    
+    <VaccinationFormModal
+      :visible="vaccinationFormVisible"
+      :mode="vaccinationFormMode"
+      :schedule-id="currentVaccinationScheduleId"
+      :edit-record="editingVaccination"
+      @close="vaccinationFormVisible = false"
+      @success="handleVaccinationSuccess"
     />
   </div>
 </template>

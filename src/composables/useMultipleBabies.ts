@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue'
-import type { Baby, BabyInfo, BabyMeasurement, SpecialPeriod } from '../types'
+import type { Baby, BabyInfo, BabyMeasurement, SpecialPeriod, VaccinationRecord } from '../types'
 import { 
   babyInfo as initialBabyInfo,
   babyMeasurements as initialMeasurements,
@@ -90,7 +90,8 @@ const createInitialBaby = (): Baby => ({
   id: generateId(),
   info: { ...initialBabyInfo },
   measurements: [...initialMeasurements],
-  specialPeriods: [...initialSpecialPeriods]
+  specialPeriods: [...initialSpecialPeriods],
+  vaccinations: []
 })
 
 const migrateFromOldVersion = (): { babies: Baby[], currentBabyId: string } | null => {
@@ -113,7 +114,8 @@ const migrateFromOldVersion = (): { babies: Baby[], currentBabyId: string } | nu
         avatar: oldData.babyInfo.avatar || undefined
       },
       measurements: oldData.babyMeasurements || [],
-      specialPeriods: oldData.specialPeriods || []
+      specialPeriods: oldData.specialPeriods || [],
+      vaccinations: []
     }
 
     console.info('[useMultipleBabies] 检测到旧版本数据，已成功迁移到多宝宝版本')
@@ -140,9 +142,13 @@ const loadFromStorage = (): { babies: Baby[], currentBabyId: string } => {
     const parsed = JSON.parse(raw)
     if (parsed && Array.isArray(parsed.babies) && parsed.babies.length > 0 && parsed.currentBabyId) {
       const currentExists = parsed.babies.some((b: Baby) => b.id === parsed.currentBabyId)
+      const normalizedBabies: Baby[] = parsed.babies.map((b: Baby) => ({
+        ...b,
+        vaccinations: Array.isArray(b.vaccinations) ? b.vaccinations : []
+      }))
       return {
-        babies: parsed.babies,
-        currentBabyId: currentExists ? parsed.currentBabyId : parsed.babies[0].id
+        babies: normalizedBabies,
+        currentBabyId: currentExists ? parsed.currentBabyId : normalizedBabies[0].id
       }
     }
     const migratedData = migrateFromOldVersion()
@@ -192,6 +198,7 @@ export const useMultipleBabies = () => {
   const currentBabyInfo = computed(() => currentBaby.value.info)
   const currentMeasurements = computed(() => currentBaby.value.measurements)
   const currentSpecialPeriods = computed(() => currentBaby.value.specialPeriods)
+  const currentVaccinations = computed(() => currentBaby.value.vaccinations)
 
   const switchBaby = (babyId: string) => {
     const exists = babies.value.some(b => b.id === babyId)
@@ -217,7 +224,8 @@ export const useMultipleBabies = () => {
         avatar: getDefaultAvatar(info.gender)
       },
       measurements: [],
-      specialPeriods: periods
+      specialPeriods: periods,
+      vaccinations: []
     }
     babies.value.push(newBaby)
     currentBabyId.value = newBaby.id
@@ -263,6 +271,59 @@ export const useMultipleBabies = () => {
     if (index === -1) return false
 
     baby.specialPeriods.splice(index, 1)
+    return true
+  }
+
+  const generateVaccinationId = (existingIds: string[]): string => {
+    const maxNum = existingIds.reduce((max, id) => {
+      const match = id.match(/^vac(\d+)$/)
+      return match ? Math.max(max, parseInt(match[1], 10)) : max
+    }, 0)
+    return `vac${maxNum + 1}`
+  }
+
+  const addVaccinationToBaby = (
+    babyId: string,
+    data: Omit<VaccinationRecord, 'id'>
+  ): VaccinationRecord | null => {
+    const baby = babies.value.find(b => b.id === babyId)
+    if (!baby) return null
+
+    const duplicate = baby.vaccinations.find(v => v.scheduleId === data.scheduleId)
+    if (duplicate) return null
+
+    const existingIds = baby.vaccinations.map(v => v.id)
+    const newRecord: VaccinationRecord = {
+      id: generateVaccinationId(existingIds),
+      ...data
+    }
+    baby.vaccinations.push(newRecord)
+    return newRecord
+  }
+
+  const updateVaccinationInBaby = (
+    babyId: string,
+    recordId: string,
+    data: Partial<Omit<VaccinationRecord, 'id' | 'scheduleId'>>
+  ): VaccinationRecord | null => {
+    const baby = babies.value.find(b => b.id === babyId)
+    if (!baby) return null
+
+    const record = baby.vaccinations.find(v => v.id === recordId)
+    if (!record) return null
+
+    Object.assign(record, data)
+    return record
+  }
+
+  const deleteVaccinationFromBaby = (babyId: string, recordId: string): boolean => {
+    const baby = babies.value.find(b => b.id === babyId)
+    if (!baby) return false
+
+    const index = baby.vaccinations.findIndex(v => v.id === recordId)
+    if (index === -1) return false
+
+    baby.vaccinations.splice(index, 1)
     return true
   }
 
@@ -488,6 +549,7 @@ export const useMultipleBabies = () => {
     currentBabyInfo,
     currentMeasurements,
     currentSpecialPeriods,
+    currentVaccinations,
     switchBaby,
     addBaby,
     updateBaby,
@@ -507,6 +569,9 @@ export const useMultipleBabies = () => {
     getBabyMeasurementsById,
     addSpecialPeriodToBaby,
     updateSpecialPeriodForBaby,
-    deleteSpecialPeriodFromBaby
+    deleteSpecialPeriodFromBaby,
+    addVaccinationToBaby,
+    updateVaccinationInBaby,
+    deleteVaccinationFromBaby
   }
 }

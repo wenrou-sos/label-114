@@ -57,11 +57,32 @@ export interface BabyInfo {
   avatar?: string
 }
 
+export interface VaccinationRecord {
+  id: string
+  scheduleId: string
+  date: string
+  batchNumber?: string
+  site?: string
+  note?: string
+}
+
+export interface VaccineSchedule {
+  id: string
+  vaccineId: string
+  vaccineName: string
+  shortName: string
+  ageMonths: number
+  dose: number
+  totalDoses: number
+  description?: string
+}
+
 export interface Baby {
   id: string
   info: BabyInfo
   measurements: BabyMeasurement[]
   specialPeriods: SpecialPeriod[]
+  vaccinations: VaccinationRecord[]
 }
 
 export interface BabyStore {
